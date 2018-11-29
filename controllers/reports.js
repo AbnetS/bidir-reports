@@ -25,6 +25,9 @@ const Question           = require('../models/question');
 const Form               = require('../models/form');
 const Section            = require('../models/section');
 const History            = require('../models/history');
+const Crop            = require('../models/crop');
+const ACAT            = require('../models/ACAT');
+const Client            = require('../models/client');
 
 const TokenDal           = require('../dal/token');
 const ClientDal          = require('../dal/client');
@@ -35,6 +38,7 @@ const AccountDal         = require('../dal/account');
 const QuestionDal        = require('../dal/question');
 const SectionDal         = require('../dal/section');
 const HistoryDal         = require('../dal/history');
+const ACATDal         = require('../dal/ACAT');
 
 let hasPermission = checkPermissions.isPermitted('REPORT');
 
@@ -250,7 +254,7 @@ exports.viewByStage = function* viewByStage(next) {
     }
 
     let clients = yield ClientDal.getCollectionByPagination({
-      _id: { $in: clientIds }
+      _id: { $in: clientIds.slice() }
     }, opts);
 
     this.body = clients;
@@ -263,3 +267,117 @@ exports.viewByStage = function* viewByStage(next) {
   }
 };
 
+/**
+ * Get a clients by crop
+ *
+ * @desc Fetch a collection of clients
+ *
+ * @param {Function} next Middleware dispatcher
+ */
+exports.viewByCrops = function* viewByCrops(next) {
+  debug('get a collection of clients by crop');
+
+  let isPermitted = yield hasPermission(this.state._user, 'VIEW');
+  if(!isPermitted) {
+    return this.throw(new CustomError({
+      type: 'VIEW_CLIENTS_BY_CROPS_ERROR',
+      message: "You Don't have enough permissions to complete this action"
+    }));
+  }
+
+  // retrieve pagination query params
+  let page   = this.query.page || 1;
+  let limit  = this.query.per_page || 10;
+  let query = {};
+
+  let sortType = this.query.sort_by;
+  let sort = {};
+  sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
+
+  let opts = {
+    page: +page,
+    limit: +limit,
+    sort: sort
+  };
+
+  let canViewAll =  yield hasPermission(this.state._user, 'VIEW_ALL');
+  let canView =  yield hasPermission(this.state._user, 'VIEW');
+
+
+  try {
+    let user = this.state._user;
+
+    let account = yield Account.findOne({ user: user._id }).exec();
+
+    // Super Admin
+    if (!account || (account.multi_branches && canViewAll)) {
+        //query = {};
+
+    // Can VIEW ALL
+    } else if (canViewAll) {
+      if(account.access_branches.length) {
+          query.branch = { $in: account.access_branches };
+
+      } else if(account.default_branch) {
+          query.branch = account.default_branch;
+
+      }
+
+    // DEFAULT
+    } else {
+      query.created_by = user._id;
+    }
+
+    let clients;
+
+    // @TODO use aggregation pipeline instead of this mess
+    if (this.query.id) {
+      
+      let crop = yield Crop.findOne({ _id: this.query.id }).exec();
+      let acats = yield ACATDal.getCollectionByPagination({
+        crop: crop._id
+      }, opts);
+
+      let ids = [];
+      for(let acat of acats.docs) {
+        ids.push(acat.client)
+      }
+
+      clients = yield ClientDal.getCollectionByPagination({
+        _id: { $in: ids.slice() }
+      }, opts)
+
+    } else {
+      let crops = yield Crop.find({}).exec();
+
+      let ACATs = yield ACAT.aggregate().group({
+        _id: "$crop",
+        count: { $sum: 1 },
+        clients: { $push: "$client"}
+      }).exec()
+
+      clients = [];
+
+      for(let acat of ACATs) {
+        let _clients = yield Client.find({
+          _id: { $in: acat.clients.slice() }
+        }).exec()
+        let crop = yield Crop.findOne({ _id: acat._id });
+
+        clients.push({
+          crop: crop.toJSON(),
+          clients: _clients,
+          total: _clients.length
+        })
+      }
+    }
+    
+    this.body = clients;
+
+  } catch(ex) {
+    return this.throw(new CustomError({
+      type: 'VIEW_CLIENTS_BY_CROPS_ERROR',
+      message: ex.message
+    }));
+  }
+};

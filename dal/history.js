@@ -8,6 +8,7 @@ const debug   = require('debug')('api:dal-history');
 const moment  = require('moment');
 const _       = require('lodash');
 const co      = require('co');
+var mongoose  = require('mongoose');
 
 const History      = require('../models/history');
 const Client       = require('../models/client');
@@ -188,18 +189,17 @@ exports.getWhere = function getWhere(query, qs) {
   };
 
   return co(function*(){
-    let histories = yield History.find().$where(query).exec()
+    let histories = yield History.$where(query).exec()
+    
     let clients = []
     for(let hist of histories) {
       clients.push(hist.client.toString())
     }
     query = {
-      _id: { $in: clients }
+      client: { $in: clients.slice() }
     };
 
     let docs = yield History.paginate(query,opts)
-
-    console.log(docs, query)
 
     let data = {
         total_pages: docs.pages,

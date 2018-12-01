@@ -246,5 +246,47 @@ router.get('/clients/stage', acl(['*']), reportsController.viewByStage);
  */
 router.get('/clients/crops', acl(['*']), reportsController.viewByCrops);
 
+/**
+ * @api {get} /reports/crops/stats Get Crop Stats
+ * @apiVersion 1.0.0
+ * @apiName Stats
+ * @apiGroup Crop
+ *
+ * @apiDescription Get Crop Stats by clients and loan amount
+ *
+ * @apiSuccess {String} crop Crop Name
+ * @apiSuccess {Number} total_clients Total Clients
+ * @apiSuccess {Number} total_loan_amount total Loan Amount
+ *
+ * @apiSuccessExample Response Example:
+ * [{
+ *    crop: "Maize", 
+ *    total_clients: 100,
+ *    total_loan_amount: 100000
+ *    }]
+ */
+router.get('/crops/stats', acl(['*']), reportsController.viewCropsStats);
+
+/**
+ * @api {get} /reports/stages/stats Get Loan Cycle Stages Stats
+ * @apiVersion 1.0.0
+ * @apiName Stats
+ * @apiGroup LoanCycle
+ *
+ * @apiDescription Get loan Cycle stages stats
+ *
+ * @apiSuccess {Number} clients_under_screening Total Clients under screening
+ * @apiSuccess {Number} clients_under_loan Total Clients under loan
+ * @apiSuccess {Number} clients_under_acat Total Clients under ACAT
+ *
+ * @apiSuccessExample Response Example:
+ * [{ 
+ *    clients_under_screening: 100,
+ *    clients_under_loan: 167,
+ *    clients_under_acat: 12
+ *    }]
+ */
+router.get('/stages/stats', acl(['*']), reportsController.viewStagesStats);
+
 // Expose Client Router
 module.exports = router;

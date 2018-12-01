@@ -28,6 +28,7 @@ const History            = require('../models/history');
 const Crop            = require('../models/crop');
 const ACAT            = require('../models/ACAT');
 const Client            = require('../models/client');
+const LoanProposal            = require('../models/loanProposal');
 
 const TokenDal           = require('../dal/token');
 const ClientDal          = require('../dal/client');
@@ -41,9 +42,6 @@ const HistoryDal         = require('../dal/history');
 const ACATDal         = require('../dal/ACAT');
 
 let hasPermission = checkPermissions.isPermitted('REPORT');
-
-
-
 
 /**
  * Get a collection of loan granted clients
@@ -141,6 +139,188 @@ exports.viewByGender = function* viewByGender(next) {
     }));
   }
 };
+
+/**
+ * View loan cycle stages stats
+ * // /reports/stage/stats
+ *
+ * @desc Fetch a collection of clients
+ *
+ * @param {Function} next Middleware dispatcher
+ */
+exports.viewCropsStats = function* viewCropsStats(next) {
+  debug('get loan cycle crops stats');
+
+  let isPermitted = yield hasPermission(this.state._user, 'VIEW');
+  if(!isPermitted) {
+    return this.throw(new CustomError({
+      type: 'VIEW_CROP_STATS_ERROR',
+      message: "You Don't have enough permissions to complete this action"
+    }));
+  }
+
+
+  let canViewAll =  yield hasPermission(this.state._user, 'VIEW_ALL');
+  let canView =  yield hasPermission(this.state._user, 'VIEW');
+
+
+  try {
+    let user = this.state._user;
+
+    let account = yield Account.findOne({ user: user._id }).exec();
+
+    // Super Admin
+    if (!account || (account.multi_branches && canViewAll)) {
+        //query = {};
+
+    // Can VIEW ALL
+    } else if (canViewAll) {
+      if(account.access_branches.length) {
+          query.branch = { $in: account.access_branches };
+
+      } else if(account.default_branch) {
+          query.branch = account.default_branch;
+
+      }
+
+    // DEFAULT
+    } else {
+      query.created_by = user._id;
+    }
+
+    // @TODO improve with aggregation
+    let stats = [];
+    let crops = yield Crop.find({}).exec()
+
+    for(let crop of crops) {
+      let acats = yield ACAT.find({
+        crop: crop
+      }).exec();
+
+      let totalLoanAmount = 0;
+      let totalClients = acats.length;
+
+      for(let acat of acats) {
+        let loanProposals = yield LoanProposal.find({
+          client: acat.client
+        }).exec()
+
+        for(let proposal of loanProposals) {
+          totalLoanAmount += +proposal.loan_approved
+        }
+      }
+
+      stats.push({
+        crop: crop.name,
+        no_of_clients: totalClients,
+        total_loan_amount: totalLoanAmount
+      })
+    }
+
+    this.body = stats;
+
+  } catch(ex) {
+    return this.throw(new CustomError({
+      type: 'VIEW_CROP_STATS_ERROR',
+      message: ex.message
+    }));
+  }
+};
+
+
+
+/**
+ * View loan cycle stages stats
+ * // /reports/stage/stats
+ *
+ * @desc Fetch a collection of clients
+ *
+ * @param {Function} next Middleware dispatcher
+ */
+exports.viewStagesStats = function* viewStagesStats(next) {
+  debug('get loan cycle stages stats');
+
+  let isPermitted = yield hasPermission(this.state._user, 'VIEW');
+  if(!isPermitted) {
+    return this.throw(new CustomError({
+      type: 'VIEW_LOAN_CYCLE_STAGES_STATS_ERROR',
+      message: "You Don't have enough permissions to complete this action"
+    }));
+  }
+
+
+  let canViewAll =  yield hasPermission(this.state._user, 'VIEW_ALL');
+  let canView =  yield hasPermission(this.state._user, 'VIEW');
+
+
+  try {
+    let user = this.state._user;
+
+    let account = yield Account.findOne({ user: user._id }).exec();
+
+    // Super Admin
+    if (!account || (account.multi_branches && canViewAll)) {
+        //query = {};
+
+    // Can VIEW ALL
+    } else if (canViewAll) {
+      if(account.access_branches.length) {
+          query.branch = { $in: account.access_branches };
+
+      } else if(account.default_branch) {
+          query.branch = account.default_branch;
+
+      }
+
+    // DEFAULT
+    } else {
+      query.created_by = user._id;
+    }
+
+    // Proxy via History Model
+    // @TODO Improve with aggregation
+    let histories;
+    let screeningCount  = yield History.count({
+      cycle: {
+        loan: null,
+        acat: null
+      }
+    }).exec();
+    let loanCount  = yield History.count({
+      cycle: {
+        acat: null
+      }
+    }).exec();
+    let acatCount = yield History.$where(function(){
+        let currentCycleACAT = false;
+
+        for(let cycle of this.cycles) {
+          if ((this.cycle_number === cycle.cycle_number) && !!cycle.acat) {
+            currentCycleACAT = true;
+            break;
+          }
+        }
+
+        return currentCycleACAT === true;
+      }).exec();
+
+
+    this.body = {
+      clients_under_screening: screeningCount,
+      clients_under_loan: loanCount,
+      clients_under_acat: acatCount.length
+    };
+
+  } catch(ex) {
+    return this.throw(new CustomError({
+      type: 'VIEW_LOAN_CYCLE_STAGES_STATS_ERROR',
+      message: ex.message
+    }));
+  }
+};
+
+
+
 
 /**
  * Get a collection of loan granted clients

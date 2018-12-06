@@ -39,54 +39,163 @@ const AccountDal         = require('../dal/account');
 const QuestionDal        = require('../dal/question');
 const SectionDal         = require('../dal/section');
 const HistoryDal         = require('../dal/history');
-const ACATDal         = require('../dal/ACAT');
+const ACATDal            = require('../dal/ACAT');
+const ReportDal          = require('../dal/report');
+const ReportTypeDal      = require('../dal/reportType');
 
 let hasPermission = checkPermissions.isPermitted('REPORT');
 
 /**
- * Get a collection of loan granted clients
+ * Get a report type.
  *
- * @desc Fetch a collection of clients
+ * @desc Fetch a report type with the given id f
  *
  * @param {Function} next Middleware dispatcher
  */
-exports.viewByGender = function* viewByGender(next) {
-  debug('get a collection of clients by gender');
+exports.create = function* createReportType(next) {
+  debug('create report type');
 
-  let isPermitted = yield hasPermission(this.state._user, 'VIEW');
-  if(!isPermitted) {
-    return this.throw(new CustomError({
-      type: 'VIEW_CLIENTS_BY_GENDER_ERROR',
-      message: "You Don't have enough permissions to complete this action"
-    }));
-  }
+  let body = this.request.body;
 
-  this.checkQuery("type")
-      .notEmpty('Gender is Empty');
+  this.checkBody('title')
+      .notEmpty('Report title is Empty');
+  this.checkBody('type')
+      .notEmpty('Report Type is Empty');
 
   if(this.errors) {
     return this.throw(new CustomError({
-      type: 'VIEW_CLIENTS_BY_GENDER_ERROR',
+      type: 'REPORT_TYPE_CREATION_ERROR',
       message: JSON.stringify(this.errors)
     }));
   }
-  
 
-  if(this.query.format) {
+  try {
+
+    let reportType = yield ReportTypeDal.get(body);
+    if (reportType) {
+      throw new Error('Report Type Exists Already')
+    }
+
+    reportType = yield ReportTypeDal.create(body);
+
+    this.body = reportType;
+
+  } catch(ex) {
     return this.throw(new CustomError({
-      type: 'VIEW_CLIENTS_BY_GENDER_ERROR',
-      message: `${this.query.format} not yet implemented!`
+      type: 'REPORT_TYPE_CREATION_ERROR',
+      message: ex.message
+    }));
+  }
+}
+
+/**
+ * Get a report type.
+ *
+ * @desc Fetch a report type with the given id f
+ *
+ * @param {Function} next Middleware dispatcher
+ */
+exports.getCollection = function* getReportTypes(next) {
+  debug('get report types');
+
+  try {
+
+    let reportTypes = yield ReportTypeDal.getCollection({});
+
+    this.body = reportTypes;
+
+  } catch(ex) {
+    return this.throw(new CustomError({
+      type: 'VIEW_REPORT_TYPES_ERROR',
+      message: ex.message
+    }));
+  }
+}
+
+/**
+ * Get a report type.
+ *
+ * @desc Fetch a report type with the given id f
+ *
+ * @param {Function} next Middleware dispatcher
+ */
+exports.fetchOne = function* fetchOneReportType(next) {
+  debug(`fetch report type: ${this.params.id}`);
+
+  let query = {
+    _id: this.params.id
+  };
+
+  try {
+    if(this.query.format) {
+      throw new Error(`${this.query.format} not yet implemented!`)
+    }
+
+    let reportType = yield ReportTypeDal.get(query);
+    if (!reportType) {
+      throw new Error('Report Type Does Not Exist!')
+    }
+
+    yield LogDal.track({
+      event: 'view_report',
+      screening: this.state._user._id ,
+      message: `View report - ${reportType.title}`
+    });
+
+    const REPORTS = {
+      CLIENTS_BY_GENDER: viewByGender,
+      CROP_STATS: viewCropsStats,
+      LOAN_CYCLE_STAGES_STATS: viewStagesStats,
+      CLIENTS_BY_CROPS: viewByCrops,
+      LOAN_CYCLE_STAGES: viewByStage
+    };
+
+    let type = Object.keys(REPORTS).filter(function(item){
+      return reportType.type === item
+    });
+
+    if (!type.length) {
+      throw new Error('Report Generator Not Implemented!');
+    }
+
+    let report = yield REPORTS[type[0]](this, reportType);
+
+    this.body = report;
+
+  } catch(ex) {
+    console.log(ex)
+    return this.throw(new CustomError({
+      type: 'VIEW_REPORT_ERROR',
+      message: ex.message
     }));
   }
 
+};
+
+// Reports Generator
+
+
+/**
+ * Get a collection of loan granted clients
+ */
+function* viewByGender(ctx, reportType) {
+  debug('get a collection of clients by gender');
+
+  ctx.checkQuery("type")
+      .notEmpty('Gender is Empty');
+
+  if(ctx.errors) {
+    throw new Error(JSON.stringify(ctx.errors));
+  }
+
   // retrieve pagination query params
-  let page   = this.query.page || 1;
-  let limit  = this.query.per_page || 10;
+  let page   = ctx.query.page || 1;
+  let limit  = ctx.query.per_page || 10;
   let query = {
-    gender: this.query.type
+    gender: ctx.query.type
   };
 
-  let sortType = this.query.sort_by;
+  let sortType = ctx.query.sort_by;
   let sort = {};
   sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
 
@@ -96,12 +205,12 @@ exports.viewByGender = function* viewByGender(next) {
     sort: sort
   };
 
-  let canViewAll =  yield hasPermission(this.state._user, 'VIEW_ALL');
-  let canView =  yield hasPermission(this.state._user, 'VIEW');
+  let canViewAll =  yield hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  yield hasPermission(ctx.state._user, 'VIEW');
 
 
   try {
-    let user = this.state._user;
+    let user = ctx.state._user;
 
     let account = yield Account.findOne({ user: user._id }).exec();
 
@@ -130,42 +239,32 @@ exports.viewByGender = function* viewByGender(next) {
 
     let clients = yield ClientDal.getCollectionByPagination(query, opts);
 
-    this.body = clients;
+    yield ReportDal.create({
+      type: reportType._id,
+      data: clients
+    })
+
+    return clients;
 
   } catch(ex) {
-    return this.throw(new CustomError({
-      type: 'VIEW_CLIENTS_BY_GENDER_ERROR',
-      message: ex.message
-    }));
+    throw ex;
   }
 };
 
 /**
  * View loan cycle stages stats
  * // /reports/stage/stats
- *
- * @desc Fetch a collection of clients
- *
- * @param {Function} next Middleware dispatcher
  */
-exports.viewCropsStats = function* viewCropsStats(next) {
+function* viewCropsStats(ctx, reportType) {
   debug('get loan cycle crops stats');
 
-  let isPermitted = yield hasPermission(this.state._user, 'VIEW');
-  if(!isPermitted) {
-    return this.throw(new CustomError({
-      type: 'VIEW_CROP_STATS_ERROR',
-      message: "You Don't have enough permissions to complete this action"
-    }));
-  }
 
-
-  let canViewAll =  yield hasPermission(this.state._user, 'VIEW_ALL');
-  let canView =  yield hasPermission(this.state._user, 'VIEW');
+  let canViewAll =  yield hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  yield hasPermission(ctx.state._user, 'VIEW');
 
 
   try {
-    let user = this.state._user;
+    let user = ctx.state._user;
 
     let account = yield Account.findOne({ user: user._id }).exec();
 
@@ -217,13 +316,15 @@ exports.viewCropsStats = function* viewCropsStats(next) {
       })
     }
 
-    this.body = stats;
+    yield ReportDal.create({
+      type: reportType._id,
+      data: stats
+    })
+
+    return stats;
 
   } catch(ex) {
-    return this.throw(new CustomError({
-      type: 'VIEW_CROP_STATS_ERROR',
-      message: ex.message
-    }));
+    throw ex;
   }
 };
 
@@ -232,29 +333,16 @@ exports.viewCropsStats = function* viewCropsStats(next) {
 /**
  * View loan cycle stages stats
  * // /reports/stage/stats
- *
- * @desc Fetch a collection of clients
- *
- * @param {Function} next Middleware dispatcher
  */
-exports.viewStagesStats = function* viewStagesStats(next) {
+function* viewStagesStats(ctx, reportType) {
   debug('get loan cycle stages stats');
 
-  let isPermitted = yield hasPermission(this.state._user, 'VIEW');
-  if(!isPermitted) {
-    return this.throw(new CustomError({
-      type: 'VIEW_LOAN_CYCLE_STAGES_STATS_ERROR',
-      message: "You Don't have enough permissions to complete this action"
-    }));
-  }
-
-
-  let canViewAll =  yield hasPermission(this.state._user, 'VIEW_ALL');
-  let canView =  yield hasPermission(this.state._user, 'VIEW');
+  let canViewAll =  yield hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  yield hasPermission(ctx.state._user, 'VIEW');
 
 
   try {
-    let user = this.state._user;
+    let user = ctx.state._user;
 
     let account = yield Account.findOne({ user: user._id }).exec();
 
@@ -304,18 +392,22 @@ exports.viewStagesStats = function* viewStagesStats(next) {
         return currentCycleACAT === true;
       }).exec();
 
-
-    this.body = {
+    let stats = {
       clients_under_screening: screeningCount,
       clients_under_loan: loanCount,
       clients_under_acat: acatCount.length
     };
 
+    yield ReportDal.create({
+      type: reportType._id,
+      data: stats
+    })
+
+    return stats;
+
   } catch(ex) {
-    return this.throw(new CustomError({
-      type: 'VIEW_LOAN_CYCLE_STAGES_STATS_ERROR',
-      message: ex.message
-    }));
+    console.log(ex)
+    throw ex;
   }
 };
 
@@ -324,41 +416,26 @@ exports.viewStagesStats = function* viewStagesStats(next) {
 
 /**
  * Get a collection of loan granted clients
- *
- * @desc Fetch a collection of clients
- *
- * @param {Function} next Middleware dispatcher
  */
-exports.viewByStage = function* viewByStage(next) {
+function* viewByStage(ctx, reportType) {
   debug('get a collection of clients by loan cycle stage');
-
-  let isPermitted = yield hasPermission(this.state._user, 'VIEW');
-  if(!isPermitted) {
-    return this.throw(new CustomError({
-      type: 'VIEW_CLIENTS_BY_LOAN_CYCLE_STAGE_ERROR',
-      message: "You Don't have enough permissions to complete this action"
-    }));
-  }
 
   const ACCEPTED_STAGES = ["screening","loan","acat"];
 
-  this.checkQuery("name")
+  ctx.checkQuery("name")
       .notEmpty('Loan cycle Stage name is Empty')
       .isIn(ACCEPTED_STAGES, `Accepted stages are ${ACCEPTED_STAGES.join(",")}`);
 
-  if(this.errors) {
-    return this.throw(new CustomError({
-      type: 'VIEW_CLIENTS_BY_LOAN_CYCLE_STAGE_ERROR',
-      message: JSON.stringify(this.errors)
-    }));
+  if(ctx.errors) {
+    throw new Error(JSON.stringify(ctx.errors))
   }
 
   // retrieve pagination query params
-  let page   = this.query.page || 1;
-  let limit  = this.query.per_page || 10;
+  let page   = ctx.query.page || 1;
+  let limit  = ctx.query.per_page || 10;
   let query = {};
 
-  let sortType = this.query.sort_by;
+  let sortType = ctx.query.sort_by;
   let sort = {};
   sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
 
@@ -368,12 +445,12 @@ exports.viewByStage = function* viewByStage(next) {
     sort: sort
   };
 
-  let canViewAll =  yield hasPermission(this.state._user, 'VIEW_ALL');
-  let canView =  yield hasPermission(this.state._user, 'VIEW');
+  let canViewAll =  yield hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  yield hasPermission(ctx.state._user, 'VIEW');
 
 
   try {
-    let user = this.state._user;
+    let user = ctx.state._user;
 
     let account = yield Account.findOne({ user: user._id }).exec();
 
@@ -399,20 +476,20 @@ exports.viewByStage = function* viewByStage(next) {
     // Proxy via History Model
     let histories;
     query = { cycles: {} }
-    if (this.query.name === "screening") {
+    if (ctx.query.name === "screening") {
       query.cycles = {
         loan: null,
         acat: null
       }
       histories = yield HistoryDal.getCollectionByPagination(query, opts);
 
-    } else if (this.query.name === "loan") {
+    } else if (ctx.query.name === "loan") {
       query.cycles = {
         acat: null
       }
       histories = yield HistoryDal.getCollectionByPagination(query, opts);
 
-    } else if (this.query.name === "acat") {
+    } else if (ctx.query.name === "acat") {
       histories = yield HistoryDal.getWhere(function(){
         let currentCycleACAT = false;
 
@@ -437,40 +514,30 @@ exports.viewByStage = function* viewByStage(next) {
       _id: { $in: clientIds.slice() }
     }, opts);
 
-    this.body = clients;
+    yield ReportDal.create({
+      type: reportType._id,
+      data: clients
+    })
+
+    return clients;
 
   } catch(ex) {
-    return this.throw(new CustomError({
-      type: 'VIEW_CLIENTS_BY_LOAN_CYCLE_STAGE_ERROR',
-      message: ex.message
-    }));
+    throw ex;
   }
 };
 
 /**
  * Get a clients by crop
- *
- * @desc Fetch a collection of clients
- *
- * @param {Function} next Middleware dispatcher
  */
-exports.viewByCrops = function* viewByCrops(next) {
+function* viewByCrops(ctx, reportType) {
   debug('get a collection of clients by crop');
 
-  let isPermitted = yield hasPermission(this.state._user, 'VIEW');
-  if(!isPermitted) {
-    return this.throw(new CustomError({
-      type: 'VIEW_CLIENTS_BY_CROPS_ERROR',
-      message: "You Don't have enough permissions to complete this action"
-    }));
-  }
-
   // retrieve pagination query params
-  let page   = this.query.page || 1;
-  let limit  = this.query.per_page || 10;
+  let page   = ctx.query.page || 1;
+  let limit  = ctx.query.per_page || 10;
   let query = {};
 
-  let sortType = this.query.sort_by;
+  let sortType = ctx.query.sort_by;
   let sort = {};
   sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
 
@@ -480,12 +547,12 @@ exports.viewByCrops = function* viewByCrops(next) {
     sort: sort
   };
 
-  let canViewAll =  yield hasPermission(this.state._user, 'VIEW_ALL');
-  let canView =  yield hasPermission(this.state._user, 'VIEW');
+  let canViewAll =  yield hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  yield hasPermission(ctx.state._user, 'VIEW');
 
 
   try {
-    let user = this.state._user;
+    let user = ctx.state._user;
 
     let account = yield Account.findOne({ user: user._id }).exec();
 
@@ -511,9 +578,9 @@ exports.viewByCrops = function* viewByCrops(next) {
     let clients;
 
     // @TODO use aggregation pipeline instead of this mess
-    if (this.query.id) {
+    if (ctx.query.crop) {
       
-      let crop = yield Crop.findOne({ _id: this.query.id }).exec();
+      let crop = yield Crop.findOne({ _id: ctx.query.crop }).exec();
       let acats = yield ACATDal.getCollectionByPagination({
         crop: crop._id
       }, opts);
@@ -552,12 +619,14 @@ exports.viewByCrops = function* viewByCrops(next) {
       }
     }
     
-    this.body = clients;
+    yield ReportDal.create({
+      type: reportType._id,
+      data: clients
+    })
+
+    return clients;
 
   } catch(ex) {
-    return this.throw(new CustomError({
-      type: 'VIEW_CLIENTS_BY_CROPS_ERROR',
-      message: ex.message
-    }));
+    throw ex;
   }
 };

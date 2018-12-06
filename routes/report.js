@@ -12,7 +12,7 @@ const acl               = authController.accessControl;
 var router  = Router();
 
 /**
- * @api {get} /reports/clients/gender?type=Male|Female Get clients by gender
+ * @api {get} /reports/:id?type=Male|Female Get clients by gender
  * @apiVersion 1.0.0
  * @apiName ViewByGender
  * @apiGroup Client
@@ -87,10 +87,9 @@ var router  = Router();
  *    }]
  *  }
  */
-router.get('/clients/gender', acl(['*']), reportsController.viewByGender);
 
 /**
- * @api {get} /reports/clients/stage?name=<loan|screening|acar> Get clients by Loan Cycle Stage
+ * @api {get} /reports/:id?name=<loan|screening|acar> Get clients by Loan Cycle Stage
  * @apiVersion 1.0.0
  * @apiName ClientsByStage
  * @apiGroup Client
@@ -165,10 +164,9 @@ router.get('/clients/gender', acl(['*']), reportsController.viewByGender);
  *    }]
  *  }
  */
-router.get('/clients/stage', acl(['*']), reportsController.viewByStage);
 
 /**
- * @api {get} /reports/clients/crops?id=<reference> Get clients by Crop
+ * @api {get} /reports/:id?crop=<reference> Get clients by Crop
  * @apiVersion 1.0.0
  * @apiName ClientsByCrops
  * @apiGroup Client
@@ -244,36 +242,67 @@ router.get('/clients/stage', acl(['*']), reportsController.viewByStage);
  *    }]
  *  }
  */
-router.get('/clients/crops', acl(['*']), reportsController.viewByCrops);
 
 /**
- * @api {get} /reports/crops/stats Get Crop Stats
+ * @api {post} /reports/create Create Report Type
  * @apiVersion 1.0.0
- * @apiName Stats
- * @apiGroup Crop
+ * @apiName Create
+ * @apiGroup ReportType
  *
- * @apiDescription Get Crop Stats by clients and loan amount
+ * @apiDescription Create a report type
  *
- * @apiSuccess {String} crop Crop Name
- * @apiSuccess {Number} total_clients Total Clients
- * @apiSuccess {Number} total_loan_amount total Loan Amount
+ * @apiParam {String} title Report Title
+ * @apiParam {String} type Report Type
+ *
+ * apiParamExample Request Example:
+ * {
+ *    title: "View Clients By Gender", 
+ *    type: "CLIENTS_BY_GENDER", 
+ *  }
+ *
+ * @apiSuccess {String} _id Report Type Reference
+ * @apiSuccess {String} title Report Title
+ * @apiSuccess {String} type Report Type
+ *
+ * @apiSuccessExample Response Example:
+ * {
+ *    _id: "556e1174a8952c9521286a60"
+ *    title: "View Clients By Gender", 
+ *    type: "CLIENTS_BY_GENDER",
+ * }
+ */
+router.post('/create', acl(['*']), reportsController.create);
+
+/**
+ * @api {get} /reports/all Get Report Types
+ * @apiVersion 1.0.0
+ * @apiName Get
+ * @apiGroup ReportType
+ *
+ * @apiDescription Get All report type
+ *
+ *
+ * @apiSuccess {String} _id Report Type Reference
+ * @apiSuccess {String} title Report Title
+ * @apiSuccess {String} type Report Type
  *
  * @apiSuccessExample Response Example:
  * [{
- *    crop: "Maize", 
- *    total_clients: 100,
- *    total_loan_amount: 100000
- *    }]
+ *    _id: "556e1174a8952c9521286a60"
+ *    title: "View Clients By Gender", 
+ *    type: "CLIENTS_BY_GENDER",
+ * }]
  */
-router.get('/crops/stats', acl(['*']), reportsController.viewCropsStats);
+router.get('/all', acl(['*']), reportsController.getCollection);
 
 /**
- * @api {get} /reports/stages/stats Get Loan Cycle Stages Stats
+ * @api {get} /reports/:id?QUERY_KEY=<QUERY_VALUE> Get Report Type Data
  * @apiVersion 1.0.0
- * @apiName Stats
- * @apiGroup LoanCycle
+ * @apiName GetData
+ * @apiGroup ReportTYPE
  *
- * @apiDescription Get loan Cycle stages stats
+ * @apiDescription Get Report Type Data/Stats Generated. Pass All Possible
+ * query parameters are defined by the report type.
  *
  * @apiSuccess {Number} clients_under_screening Total Clients under screening
  * @apiSuccess {Number} clients_under_loan Total Clients under loan
@@ -284,9 +313,9 @@ router.get('/crops/stats', acl(['*']), reportsController.viewCropsStats);
  *    clients_under_screening: 100,
  *    clients_under_loan: 167,
  *    clients_under_acat: 12
- *    }]
+ *   }]
  */
-router.get('/stages/stats', acl(['*']), reportsController.viewStagesStats);
+router.get('/:id', acl(['*']), reportsController.fetchOne);
 
 // Expose Client Router
 module.exports = router;

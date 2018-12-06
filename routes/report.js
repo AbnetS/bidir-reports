@@ -317,5 +317,7 @@ router.get('/all', acl(['*']), reportsController.getCollection);
  */
 router.get('/:id', acl(['*']), reportsController.fetchOne);
 
+router.put('/:id', acl(['*']), reportsController.update);
+
 // Expose Client Router
 module.exports = router;

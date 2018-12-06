@@ -12,6 +12,7 @@ var Schema = mongoose.Schema;
 var ReportTypeSchema = new Schema({       
     title:          { type: String },
     type:           { type: String, unique: true },
+    chart_types:    [{ type: String }],
     date_created:   { type: Date },
     last_modified:  { type: Date }
 });
@@ -45,6 +46,7 @@ ReportTypeSchema.pre('save', function preSaveMiddleware(next) {
 ReportTypeSchema.statics.attributes = {
   title: 1,
   type: 1,
+  chart_types: 1,
   date_created: 1,
   last_modified: 1,
   _id: 1

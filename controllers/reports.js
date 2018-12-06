@@ -88,6 +88,29 @@ exports.create = function* createReportType(next) {
   }
 }
 
+exports.update = function* updateReportTypes(next) {
+  debug(`update report type: ${this.params.id}`);
+
+  let query = {
+    _id: this.params.id
+  };
+
+  let body = this.request.body;
+
+  try {
+
+    let reportType = yield ReportTypeDal.update(query, body);
+
+    this.body = reportType;
+
+  } catch(ex) {
+    return this.throw(new CustomError({
+      type: 'UPDATE_REPORT_TYPES_ERROR',
+      message: ex.message
+    }));
+  }
+}
+
 /**
  * Get a report type.
  *

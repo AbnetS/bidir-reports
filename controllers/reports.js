@@ -25,10 +25,11 @@ const Question           = require('../models/question');
 const Form               = require('../models/form');
 const Section            = require('../models/section');
 const History            = require('../models/history');
-const Crop            = require('../models/crop');
-const ACAT            = require('../models/ACAT');
-const Client            = require('../models/client');
-const LoanProposal            = require('../models/loanProposal');
+const Crop               = require('../models/crop');
+const ACAT               = require('../models/ACAT');
+const ClientACAT         = require('../models/clientACAT');
+const Client             = require('../models/client');
+const LoanProposal       = require('../models/loanProposal');
 
 const TokenDal           = require('../dal/token');
 const ClientDal          = require('../dal/client');
@@ -170,7 +171,8 @@ exports.fetchOne = function* fetchOneReportType(next) {
       CROP_STATS: viewCropsStats,
       LOAN_CYCLE_STAGES_STATS: viewStagesStats,
       CLIENTS_BY_CROPS: viewByCrops,
-      LOAN_CYCLE_STAGES: viewByStage
+      LOAN_CYCLE_STAGES: viewByStage,
+      CLIENT_LOAN_CYCLE_STATS: viewClientLoancycleStats
     };
 
     let type = Object.keys(REPORTS).filter(function(item){
@@ -186,7 +188,6 @@ exports.fetchOne = function* fetchOneReportType(next) {
     this.body = report;
 
   } catch(ex) {
-    console.log(ex)
     return this.throw(new CustomError({
       type: 'VIEW_REPORT_ERROR',
       message: ex.message
@@ -196,6 +197,66 @@ exports.fetchOne = function* fetchOneReportType(next) {
 };
 
 // Reports Generator
+
+/**
+ * Get a collection of loan granted clients
+ */
+function* viewClientLoancycleStats(ctx, reportType) {
+  debug('get client loan cycle stats');
+
+  ctx.checkQuery("client")
+      .notEmpty('Client Reference is Empty');
+
+  if(ctx.errors) {
+    throw new Error(JSON.stringify(ctx.errors));
+  }
+
+
+  let query = {
+    _id: ctx.query.client
+  };
+
+
+  try {
+    let client = yield ClientDal.get(query);
+    if (!client) {
+      throw new Error("Client Does Not Exist!")
+    }
+
+    let history = yield HistoryDal.get({
+      client: client._id
+    });
+    let stats = [];
+
+    //for each history cycle
+    for(let cycle of history.cycles) {
+      if (!cycle.acat) { continue; }
+      let clientACAT = yield ClientACAT.findOne({ _id: cycle.acat }).exec();
+      let loanProposal = yield LoanProposal.findOne({ client_acat: clientACAT._id }).exec()
+      let stat = {
+        loan_cycle_no: cycle.cycle_number,
+        estimated_total_cost: clientACAT.estimated.total_cost,
+        estimated_total_revenue: clientACAT.estimated.total_revenue,
+        actual_total_cost: clientACAT.achieved.total_cost,
+        actual_total_revenue: clientACAT.achieved.total_cost,
+        loan_requested: loanProposal.loan_requested,
+        loan_approved: loanProposal.loan_approved
+      }
+
+      stats.push(stat);
+    }
+
+    yield ReportDal.create({
+      type: reportType._id,
+      data: stats
+    })
+
+    return stats;
+
+  } catch(ex) {
+    throw ex;
+  }
+};
 
 
 /**

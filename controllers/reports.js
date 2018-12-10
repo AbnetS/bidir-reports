@@ -233,7 +233,13 @@ function* viewClientLoancycleStats(ctx, reportType) {
       if (!cycle.acat) { continue; }
       let clientACAT = yield ClientACAT.findOne({ _id: cycle.acat }).exec();
       let loanProposal = yield LoanProposal.findOne({ client_acat: clientACAT._id }).exec()
+      let acats = yield ACATDal.getCollection({ _id: { $in: clientACAT.ACATs }});
+      let crops = acats.map(function (acat){
+        return acat.crop.name;
+      })
       let stat = {
+        client: `${client.first_name} ${client.last_name}`,
+        crops: crops,
         loan_cycle_no: cycle.cycle_number,
         estimated_total_cost: clientACAT.estimated.total_cost,
         estimated_total_revenue: clientACAT.estimated.total_revenue,

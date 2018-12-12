@@ -189,7 +189,7 @@ exports.getWhere = function getWhere(query, qs) {
   };
 
   return co(function*(){
-    let histories = yield History.$where(query).exec()
+    let histories = yield History.$where(query).exec();
     
     let clients = []
     for(let hist of histories) {
@@ -199,7 +199,7 @@ exports.getWhere = function getWhere(query, qs) {
       client: { $in: clients.slice() }
     };
 
-    let docs = yield History.paginate(query,opts)
+    let docs = yield History.paginate(query,opts);
 
     let data = {
         total_pages: docs.pages,

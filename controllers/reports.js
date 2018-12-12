@@ -232,11 +232,11 @@ function* viewClientLoancycleStats(ctx, reportType) {
     for(let cycle of history.cycles) {
       if (!cycle.acat) { continue; }
       let clientACAT = yield ClientACAT.findOne({ _id: cycle.acat }).exec();
-      let loanProposal = yield LoanProposal.findOne({ client_acat: clientACAT._id }).exec()
+      let loanProposal = yield LoanProposal.findOne({ client_acat: clientACAT._id }).exec();
       let acats = yield ACATDal.getCollection({ _id: { $in: clientACAT.ACATs }});
       let crops = acats.map(function (acat){
         return acat.crop.name;
-      })
+      });
       let stat = {
         client: `${client.first_name} ${client.last_name}`,
         crops: crops,
@@ -392,7 +392,7 @@ function* viewCropsStats(ctx, reportType) {
       for(let acat of acats) {
         let loanProposals = yield LoanProposal.find({
           client: acat.client
-        }).exec()
+        }).exec();
 
         for(let proposal of loanProposals) {
           totalLoanAmount += +proposal.loan_approved
@@ -570,13 +570,13 @@ function* viewByStage(ctx, reportType) {
       query.cycles = {
         loan: null,
         acat: null
-      }
+      };
       histories = yield HistoryDal.getCollectionByPagination(query, opts);
 
     } else if (ctx.query.name === "loan") {
       query.cycles = {
         acat: null
-      }
+      };
       histories = yield HistoryDal.getCollectionByPagination(query, opts);
 
     } else if (ctx.query.name === "acat") {
@@ -691,14 +691,14 @@ function* viewByCrops(ctx, reportType) {
         _id: "$crop",
         count: { $sum: 1 },
         clients: { $push: "$client"}
-      }).exec()
+      }).exec();
 
       clients = [];
 
       for(let acat of ACATs) {
         let _clients = yield Client.find({
           _id: { $in: acat.clients.slice() }
-        }).exec()
+        }).exec();
         let crop = yield Crop.findOne({ _id: acat._id });
 
         clients.push({

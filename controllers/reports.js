@@ -204,52 +204,88 @@ exports.fetchOne = function* fetchOneReportType(next) {
 function* viewClientLoancycleStats(ctx, reportType) {
   debug('get client loan cycle stats');
 
-  ctx.checkQuery("client")
-      .notEmpty('Client Reference is Empty');
-
-  if(ctx.errors) {
-    throw new Error(JSON.stringify(ctx.errors));
-  }
-
-
-  let query = {
-    _id: ctx.query.client
-  };
-
-
   try {
-    let client = yield ClientDal.get(query);
-    if (!client) {
-      throw new Error("Client Does Not Exist!")
-    }
+    let stats;
 
-    let history = yield HistoryDal.get({
-      client: client._id
-    });
-    let stats = [];
-
-    //for each history cycle
-    for(let cycle of history.cycles) {
-      if (!cycle.acat) { continue; }
-      let clientACAT = yield ClientACAT.findOne({ _id: cycle.acat }).exec();
-      let loanProposal = yield LoanProposal.findOne({ client_acat: clientACAT._id }).exec();
-      let acats = yield ACATDal.getCollection({ _id: { $in: clientACAT.ACATs }});
-      let crops = acats.map(function (acat){
-        return acat.crop.name;
-      });
-      let stat = {
-        client: `${client.first_name} ${client.last_name}`,
-        crops: crops,
-        loan_cycle_no: cycle.cycle_number,
-        estimated_total_cost: clientACAT.estimated.total_cost,
-        estimated_total_revenue: clientACAT.estimated.total_revenue,
-        actual_total_cost: clientACAT.achieved.total_cost,
-        actual_total_revenue: clientACAT.achieved.total_cost,
-        loan_requested: loanProposal.loan_requested,
-        loan_approved: loanProposal.loan_approved
+    if (ctx.query.client) {
+      let query = {
+        _id: ctx.query.client
+      };
+      let client = yield ClientDal.get(query);
+      if (!client) {
+        throw new Error("Client Does Not Exist!")
       }
 
-      stats.push(stat);
+      let history = yield HistoryDal.get({
+        client: client._id
+      });
+
+      stats = yield getStats(client, history);
+
+    } else {
+      // retrieve pagination query params
+      let page   = ctx.query.page || 1;
+      let limit  = ctx.query.per_page || 10;
+
+      let sortType = ctx.query.sort_by;
+      let sort = {};
+      sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
+
+      let opts = {
+        page: +page,
+        limit: +limit,
+        sort: sort
+      };
+      let query = {};
+
+      let clients = yield ClientDal.getCollectionByPagination(query, opts);
+
+      stats = {
+        total_pages: clients.total_pages,
+        total_docs_count: clients.total_docs_count,
+        current_page: clients.current_page,
+        data: []
+      }
+
+      for(let client of clients.docs) {
+        let history = yield HistoryDal.get({
+          client: client._id
+        });
+        if (!history) {continue;}
+        let stat =  yield getStats(client, history)
+        stats.data.push(stat);
+      }
+    }
+     
+    function* getStats(client, history) {
+      let data = {
+        client: `${client.first_name} ${client.last_name} ${client.grandfather_name}`,
+        loan_cycles: []
+      }
+      //for each history cycle
+      for(let cycle of history.cycles) {
+        if (!cycle.acat) { continue; }
+        let clientACAT = yield ClientACAT.findOne({ _id: cycle.acat }).exec();
+        let loanProposal = yield LoanProposal.findOne({ client_acat: clientACAT._id }).exec();
+        let acats = yield ACATDal.getCollection({ _id: { $in: clientACAT.ACATs }});
+        let crops = acats.map(function (acat){
+          return acat.crop.name;
+        });
+        let stat = {
+          crops: crops,
+          loan_cycle_no: cycle.cycle_number,
+          estimated_total_cost: clientACAT.estimated.total_cost,
+          estimated_total_revenue: clientACAT.estimated.total_revenue,
+          actual_total_cost: clientACAT.achieved.total_cost,
+          actual_total_revenue: clientACAT.achieved.total_cost,
+          loan_requested: loanProposal.loan_requested,
+          loan_approved: loanProposal.loan_approved
+        }
+
+        data.loan_cycles.push(stat);
+      }
+
+      return data;
     }
 
     yield ReportDal.create({

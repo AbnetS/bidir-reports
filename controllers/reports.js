@@ -278,8 +278,8 @@ function* viewClientLoancycleStats(ctx, reportType) {
           estimated_total_revenue: clientACAT.estimated.total_revenue,
           actual_total_cost: clientACAT.achieved.total_cost,
           actual_total_revenue: clientACAT.achieved.total_cost,
-          loan_requested: loanProposal.loan_requested,
-          loan_approved: loanProposal.loan_approved
+          loan_requested: loanProposal ? loanProposal.loan_requested : 0,
+          loan_approved: loanProposal ?  loanProposal.loan_approved : 0
         }
 
         data.loan_cycles.push(stat);

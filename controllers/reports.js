@@ -532,7 +532,6 @@ function* viewStagesStats(ctx, reportType) {
     return stats;
 
   } catch(ex) {
-    console.log(ex)
     throw ex;
   }
 };
@@ -682,25 +681,6 @@ function* viewByCrops(ctx, reportType) {
 
     let account = yield Account.findOne({ user: user._id }).exec();
 
-    // Super Admin
-    if (!account || (account.multi_branches && canViewAll)) {
-        //query = {};
-
-    // Can VIEW ALL
-    } else if (canViewAll) {
-      if(account.access_branches.length) {
-          query.branch = { $in: account.access_branches };
-
-      } else if(account.default_branch) {
-          query.branch = account.default_branch;
-
-      }
-
-    // DEFAULT
-    } else {
-      query.created_by = user._id;
-    }
-
     let clients;
 
     // @TODO use aggregation pipeline instead of this mess
@@ -736,10 +716,35 @@ function* viewByCrops(ctx, reportType) {
           _id: { $in: acat.clients.slice() }
         }).exec();
         let crop = yield Crop.findOne({ _id: acat._id });
+        let clientStats = [];
+
+        for(let _client of _clients) {
+          let history = yield History.findOne({ client: _client._id }).exec();
+          if (!history) { continue; }
+          //for each history cycle
+          for(let cycle of history.cycles) {
+            if (cycle.cycle_number != history.cycle_number) { continue; }
+            if (!cycle.acat) { continue; }
+            let clientACAT = yield ClientACAT.findOne({ _id: cycle.acat }).exec();
+            let loanProposal = yield LoanProposal.findOne({ client_acat: clientACAT._id }).exec();
+            let stat = {
+              client: `${_client.first_name} ${_client.last_name} ${_client.grandfather_name}`,
+              loan_cycle_no: cycle.cycle_number,
+              estimated_total_cost: clientACAT.estimated.total_cost,
+              estimated_total_revenue: clientACAT.estimated.total_revenue,
+              actual_total_cost: clientACAT.achieved.total_cost,
+              actual_total_revenue: clientACAT.achieved.total_cost,
+              loan_requested: loanProposal ? loanProposal.loan_requested : 0,
+              loan_approved: loanProposal ?  loanProposal.loan_approved : 0
+            };
+
+            clientStats.push(stat);
+          }
+        }
 
         clients.push({
-          crop: crop.toJSON(),
-          clients: _clients,
+          crop: crop.name,
+          clients: clientStats,
           total: _clients.length
         })
       }

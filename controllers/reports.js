@@ -527,7 +527,7 @@ async function viewStagesStats(ctx, reportType) {
     await ReportDal.create({
       type: reportType._id,
       data: stats
-    })
+    });
 
     return stats;
 
@@ -642,7 +642,7 @@ async function viewByStage(ctx, reportType) {
     await ReportDal.create({
       type: reportType._id,
       data: clients
-    })
+    });
 
     return clients;
 
@@ -753,7 +753,7 @@ async function viewByCrops(ctx, reportType) {
     await ReportDal.create({
       type: reportType._id,
       data: clients
-    })
+    });
 
     return clients;
 

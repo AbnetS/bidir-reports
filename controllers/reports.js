@@ -466,48 +466,19 @@ async function viewCropsStats(ctx, reportType) {
 async function viewStagesStats(ctx, reportType) {
   debug('get loan cycle stages stats');
 
-  let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
-  let canView =  await hasPermission(ctx.state._user, 'VIEW');
-
-
   try {
     let user = ctx.state._user;
 
-    let account = await Account.findOne({ user: user._id }).exec();
-
-    // Super Admin
-    if (!account || (account.multi_branches && canViewAll)) {
-        //query = {};
-
-    // Can VIEW ALL
-    } else if (canViewAll) {
-      if(account.access_branches.length) {
-          query.branch = { $in: account.access_branches };
-
-      } else if(account.default_branch) {
-          query.branch = account.default_branch;
-
-      }
-
-    // DEFAULT
-    } else {
-      query.created_by = user._id;
-    }
-
     // Proxy via History Model
     // @TODO Improve with aggregation
-    let histories;
     let screeningCount  = await History.count({
-      cycle: {
-        loan: null,
-        acat: null
-      }
+      cycle: { loan: null, acat: null }
     }).exec();
+
     let loanCount  = await History.count({
-      cycle: {
-        acat: null
-      }
+      cycle: { acat: null }
     }).exec();
+
     let acatCount = await History.$where(function(){
         let currentCycleACAT = false;
 
@@ -519,7 +490,7 @@ async function viewStagesStats(ctx, reportType) {
         }
 
         return currentCycleACAT === true;
-      }).exec();
+    }).exec();
 
     let stats = {
       clients_under_screening: screeningCount,
@@ -573,48 +544,22 @@ async function viewByStage(ctx, reportType) {
     sort: sort
   };
 
-  let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
-  let canView =  await hasPermission(ctx.state._user, 'VIEW');
-
 
   try {
     let user = ctx.state._user;
 
     let account = await Account.findOne({ user: user._id }).exec();
 
-    // Super Admin
-    if (!account || (account.multi_branches && canViewAll)) {
-        //query = {};
-
-    // Can VIEW ALL
-    } else if (canViewAll) {
-      if(account.access_branches.length) {
-          query.branch = { $in: account.access_branches };
-
-      } else if(account.default_branch) {
-          query.branch = account.default_branch;
-
-      }
-
-    // DEFAULT
-    } else {
-      query.created_by = user._id;
-    }
-
     // Proxy via History Model
     let histories;
     query = { cycles: {} };
+
     if (ctx.query.name === "screening") {
-      query.cycles = {
-        loan: null,
-        acat: null
-      };
+      query.cycles = { loan: null, acat: null };
       histories = await HistoryDal.getCollectionByPagination(query, opts);
 
     } else if (ctx.query.name === "loan") {
-      query.cycles = {
-        acat: null
-      };
+      query.cycles = { acat: null };
       histories = await HistoryDal.getCollectionByPagination(query, opts);
 
     } else if (ctx.query.name === "acat") {

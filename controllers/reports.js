@@ -189,8 +189,8 @@ exports.fetchOne = function* fetchOneReportType(next) {
 
   } catch(ex) {
     return this.throw(new CustomError({
-      type: 'VIEW_REPORT_ERROR',
-      message: ex.message
+      type: ex.type ? ex.type : 'VIEW_REPORT_ERROR',
+      message: JSON.stringify(ex.stack),
     }));
   }
 
@@ -213,7 +213,9 @@ function* viewClientLoancycleStats(ctx, reportType) {
       };
       let client = yield ClientDal.get(query);
       if (!client) {
-        throw new Error("Client Does Not Exist!")
+        let err = new Error("Client Does Not Exist!");
+        err.type = 'CLIENT_LOAN_CYCLE_STATS';
+        throw err;
       }
 
       let history = yield HistoryDal.get({
@@ -296,6 +298,7 @@ function* viewClientLoancycleStats(ctx, reportType) {
     return stats;
 
   } catch(ex) {
+    ex.type = 'CLIENT_LOAN_CYCLE_STATS';
     throw ex;
   }
 }

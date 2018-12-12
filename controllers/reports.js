@@ -194,7 +194,7 @@ exports.fetchOne = function* fetchOneReportType(next) {
     }));
   }
 
-};
+}
 
 // Reports Generator
 
@@ -257,7 +257,7 @@ function* viewClientLoancycleStats(ctx, reportType) {
       }
     }
      
-    function* getStats(client, history) {
+    async function getStats(client, history) {
       let data = {
         client: `${client.first_name} ${client.last_name} ${client.grandfather_name}`,
         loan_cycles: []
@@ -265,9 +265,9 @@ function* viewClientLoancycleStats(ctx, reportType) {
       //for each history cycle
       for(let cycle of history.cycles) {
         if (!cycle.acat) { continue; }
-        let clientACAT = yield ClientACAT.findOne({ _id: cycle.acat }).exec();
-        let loanProposal = yield LoanProposal.findOne({ client_acat: clientACAT._id }).exec();
-        let acats = yield ACATDal.getCollection({ _id: { $in: clientACAT.ACATs }});
+        let clientACAT = await ClientACAT.findOne({ _id: cycle.acat }).exec();
+        let loanProposal = await LoanProposal.findOne({ client_acat: clientACAT._id }).exec();
+        let acats = await ACATDal.getCollection({ _id: { $in: clientACAT.ACATs }});
         let crops = acats.map(function (acat){
           return acat.crop.name;
         });
@@ -298,13 +298,13 @@ function* viewClientLoancycleStats(ctx, reportType) {
   } catch(ex) {
     throw ex;
   }
-};
+}
 
 
 /**
  * Get a collection of loan granted clients
  */
-function* viewByGender(ctx, reportType) {
+async function viewByGender(ctx, reportType) {
   debug('get a collection of clients by gender');
 
   ctx.checkQuery("type")
@@ -331,14 +331,14 @@ function* viewByGender(ctx, reportType) {
     sort: sort
   };
 
-  let canViewAll =  yield hasPermission(ctx.state._user, 'VIEW_ALL');
-  let canView =  yield hasPermission(ctx.state._user, 'VIEW');
+  let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  await hasPermission(ctx.state._user, 'VIEW');
 
 
   try {
     let user = ctx.state._user;
 
-    let account = yield Account.findOne({ user: user._id }).exec();
+    let account = await Account.findOne({ user: user._id }).exec();
 
     // Super Admin
     if (!account || (account.multi_branches && canViewAll)) {
@@ -363,9 +363,9 @@ function* viewByGender(ctx, reportType) {
       query.created_by = user._id;
     }
 
-    let clients = yield ClientDal.getCollectionByPagination(query, opts);
+    let clients = await ClientDal.getCollectionByPagination(query, opts);
 
-    yield ReportDal.create({
+    await ReportDal.create({
       type: reportType._id,
       data: clients
     })
@@ -375,24 +375,24 @@ function* viewByGender(ctx, reportType) {
   } catch(ex) {
     throw ex;
   }
-};
+}
 
 /**
  * View loan cycle stages stats
  * // /reports/stage/stats
  */
-function* viewCropsStats(ctx, reportType) {
+async function viewCropsStats(ctx, reportType) {
   debug('get loan cycle crops stats');
 
 
-  let canViewAll =  yield hasPermission(ctx.state._user, 'VIEW_ALL');
-  let canView =  yield hasPermission(ctx.state._user, 'VIEW');
+  let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  await hasPermission(ctx.state._user, 'VIEW');
 
 
   try {
     let user = ctx.state._user;
 
-    let account = yield Account.findOne({ user: user._id }).exec();
+    let account = await Account.findOne({ user: user._id }).exec();
 
     // Super Admin
     if (!account || (account.multi_branches && canViewAll)) {
@@ -415,10 +415,10 @@ function* viewCropsStats(ctx, reportType) {
 
     // @TODO improve with aggregation
     let stats = [];
-    let crops = yield Crop.find({}).exec()
+    let crops = await Crop.find({}).exec();
 
     for(let crop of crops) {
-      let acats = yield ACAT.find({
+      let acats = await ACAT.find({
         crop: crop
       }).exec();
 
@@ -426,7 +426,7 @@ function* viewCropsStats(ctx, reportType) {
       let totalClients = acats.length;
 
       for(let acat of acats) {
-        let loanProposals = yield LoanProposal.find({
+        let loanProposals = await LoanProposal.find({
           client: acat.client
         }).exec();
 
@@ -442,7 +442,7 @@ function* viewCropsStats(ctx, reportType) {
       })
     }
 
-    yield ReportDal.create({
+    await ReportDal.create({
       type: reportType._id,
       data: stats
     })
@@ -452,7 +452,7 @@ function* viewCropsStats(ctx, reportType) {
   } catch(ex) {
     throw ex;
   }
-};
+}
 
 
 
@@ -460,17 +460,17 @@ function* viewCropsStats(ctx, reportType) {
  * View loan cycle stages stats
  * // /reports/stage/stats
  */
-function* viewStagesStats(ctx, reportType) {
+async function viewStagesStats(ctx, reportType) {
   debug('get loan cycle stages stats');
 
-  let canViewAll =  yield hasPermission(ctx.state._user, 'VIEW_ALL');
-  let canView =  yield hasPermission(ctx.state._user, 'VIEW');
+  let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  await hasPermission(ctx.state._user, 'VIEW');
 
 
   try {
     let user = ctx.state._user;
 
-    let account = yield Account.findOne({ user: user._id }).exec();
+    let account = await Account.findOne({ user: user._id }).exec();
 
     // Super Admin
     if (!account || (account.multi_branches && canViewAll)) {
@@ -494,18 +494,18 @@ function* viewStagesStats(ctx, reportType) {
     // Proxy via History Model
     // @TODO Improve with aggregation
     let histories;
-    let screeningCount  = yield History.count({
+    let screeningCount  = await History.count({
       cycle: {
         loan: null,
         acat: null
       }
     }).exec();
-    let loanCount  = yield History.count({
+    let loanCount  = await History.count({
       cycle: {
         acat: null
       }
     }).exec();
-    let acatCount = yield History.$where(function(){
+    let acatCount = await History.$where(function(){
         let currentCycleACAT = false;
 
         for(let cycle of this.cycles) {
@@ -524,7 +524,7 @@ function* viewStagesStats(ctx, reportType) {
       clients_under_acat: acatCount.length
     };
 
-    yield ReportDal.create({
+    await ReportDal.create({
       type: reportType._id,
       data: stats
     })
@@ -534,7 +534,7 @@ function* viewStagesStats(ctx, reportType) {
   } catch(ex) {
     throw ex;
   }
-};
+}
 
 
 
@@ -542,7 +542,7 @@ function* viewStagesStats(ctx, reportType) {
 /**
  * Get a collection of loan granted clients
  */
-function* viewByStage(ctx, reportType) {
+async function viewByStage(ctx, reportType) {
   debug('get a collection of clients by loan cycle stage');
 
   const ACCEPTED_STAGES = ["screening","loan","acat"];
@@ -570,14 +570,14 @@ function* viewByStage(ctx, reportType) {
     sort: sort
   };
 
-  let canViewAll =  yield hasPermission(ctx.state._user, 'VIEW_ALL');
-  let canView =  yield hasPermission(ctx.state._user, 'VIEW');
+  let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  await hasPermission(ctx.state._user, 'VIEW');
 
 
   try {
     let user = ctx.state._user;
 
-    let account = yield Account.findOne({ user: user._id }).exec();
+    let account = await Account.findOne({ user: user._id }).exec();
 
     // Super Admin
     if (!account || (account.multi_branches && canViewAll)) {
@@ -600,22 +600,22 @@ function* viewByStage(ctx, reportType) {
 
     // Proxy via History Model
     let histories;
-    query = { cycles: {} }
+    query = { cycles: {} };
     if (ctx.query.name === "screening") {
       query.cycles = {
         loan: null,
         acat: null
       };
-      histories = yield HistoryDal.getCollectionByPagination(query, opts);
+      histories = await HistoryDal.getCollectionByPagination(query, opts);
 
     } else if (ctx.query.name === "loan") {
       query.cycles = {
         acat: null
       };
-      histories = yield HistoryDal.getCollectionByPagination(query, opts);
+      histories = await HistoryDal.getCollectionByPagination(query, opts);
 
     } else if (ctx.query.name === "acat") {
-      histories = yield HistoryDal.getWhere(function(){
+      histories = await HistoryDal.getWhere(function(){
         let currentCycleACAT = false;
 
         for(let cycle of this.cycles) {
@@ -630,16 +630,16 @@ function* viewByStage(ctx, reportType) {
 
     }
 
-    let clientIds = []
+    let clientIds = [];
     for(let hist of histories.docs) {
       clientIds.push(hist.client._id)
     }
 
-    let clients = yield ClientDal.getCollectionByPagination({
+    let clients = await ClientDal.getCollectionByPagination({
       _id: { $in: clientIds.slice() }
     }, opts);
 
-    yield ReportDal.create({
+    await ReportDal.create({
       type: reportType._id,
       data: clients
     })
@@ -649,12 +649,12 @@ function* viewByStage(ctx, reportType) {
   } catch(ex) {
     throw ex;
   }
-};
+}
 
 /**
  * Get a clients by crop
  */
-function* viewByCrops(ctx, reportType) {
+async function viewByCrops(ctx, reportType) {
   debug('get a collection of clients by crop');
 
   // retrieve pagination query params
@@ -672,22 +672,22 @@ function* viewByCrops(ctx, reportType) {
     sort: sort
   };
 
-  let canViewAll =  yield hasPermission(ctx.state._user, 'VIEW_ALL');
-  let canView =  yield hasPermission(ctx.state._user, 'VIEW');
+  let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  await hasPermission(ctx.state._user, 'VIEW');
 
 
   try {
     let user = ctx.state._user;
 
-    let account = yield Account.findOne({ user: user._id }).exec();
+    let account = await Account.findOne({ user: user._id }).exec();
 
     let clients;
 
     // @TODO use aggregation pipeline instead of this mess
     if (ctx.query.crop) {
       
-      let crop = yield Crop.findOne({ _id: ctx.query.crop }).exec();
-      let acats = yield ACATDal.getCollectionByPagination({
+      let crop = await Crop.findOne({ _id: ctx.query.crop }).exec();
+      let acats = await ACATDal.getCollectionByPagination({
         crop: crop._id
       }, opts);
 
@@ -696,14 +696,14 @@ function* viewByCrops(ctx, reportType) {
         ids.push(acat.client)
       }
 
-      clients = yield ClientDal.getCollectionByPagination({
+      clients = await ClientDal.getCollectionByPagination({
         _id: { $in: ids.slice() }
       }, opts)
 
     } else {
-      let crops = yield Crop.find({}).exec();
+      let crops = await Crop.find({}).exec();
 
-      let ACATs = yield ACAT.aggregate().group({
+      let ACATs = await ACAT.aggregate().group({
         _id: "$crop",
         count: { $sum: 1 },
         clients: { $push: "$client"}
@@ -712,21 +712,21 @@ function* viewByCrops(ctx, reportType) {
       clients = [];
 
       for(let acat of ACATs) {
-        let _clients = yield Client.find({
+        let _clients = await Client.find({
           _id: { $in: acat.clients.slice() }
         }).exec();
-        let crop = yield Crop.findOne({ _id: acat._id });
+        let crop = await Crop.findOne({ _id: acat._id });
         let clientStats = [];
 
         for(let _client of _clients) {
-          let history = yield History.findOne({ client: _client._id }).exec();
+          let history = await History.findOne({ client: _client._id }).exec();
           if (!history) { continue; }
           //for each history cycle
           for(let cycle of history.cycles) {
             if (cycle.cycle_number != history.cycle_number) { continue; }
             if (!cycle.acat) { continue; }
-            let clientACAT = yield ClientACAT.findOne({ _id: cycle.acat }).exec();
-            let loanProposal = yield LoanProposal.findOne({ client_acat: clientACAT._id }).exec();
+            let clientACAT = await ClientACAT.findOne({ _id: cycle.acat }).exec();
+            let loanProposal = await LoanProposal.findOne({ client_acat: clientACAT._id }).exec();
             let stat = {
               client: `${_client.first_name} ${_client.last_name} ${_client.grandfather_name}`,
               loan_cycle_no: cycle.cycle_number,
@@ -750,7 +750,7 @@ function* viewByCrops(ctx, reportType) {
       }
     }
     
-    yield ReportDal.create({
+    await ReportDal.create({
       type: reportType._id,
       data: clients
     })
@@ -760,4 +760,4 @@ function* viewByCrops(ctx, reportType) {
   } catch(ex) {
     throw ex;
   }
-};
+}

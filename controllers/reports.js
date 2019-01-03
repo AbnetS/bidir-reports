@@ -23,6 +23,7 @@ const FORM               = require('../lib/enums').FORM;
 const Account            = require('../models/account');
 const Question           = require('../models/question');
 const Form               = require('../models/form');
+const Branch             = require('../models/branch');
 const Section            = require('../models/section');
 const History            = require('../models/history');
 const Crop               = require('../models/crop');
@@ -168,6 +169,7 @@ exports.fetchOne = function* fetchOneReportType(next) {
 
     const REPORTS = {
       CLIENTS_BY_GENDER: viewByGender,
+      CLIENTS_BY_BRANCH: viewByBranch,
       CROP_STATS: viewCropsStats,
       LOAN_CYCLE_STAGES_STATS: viewStagesStats,
       CLIENTS_BY_CROPS: viewByCrops,
@@ -299,6 +301,64 @@ function* viewClientLoancycleStats(ctx, reportType) {
 
   } catch(ex) {
     ex.type = 'CLIENT_LOAN_CYCLE_STATS';
+    throw ex;
+  }
+}
+
+/**
+ * Get a collection of loan granted clients
+ */
+async function viewByBranch(ctx, reportType) {
+  debug('get a collection of clients by branches');
+
+
+  // retrieve pagination query params
+  let page   = ctx.query.page || 1;
+  let limit  = ctx.query.per_page || 10;
+  let query = {
+    gender: ctx.query.type
+  };
+
+  let sortType = ctx.query.sort_by;
+  let sort = {};
+  sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
+
+  let opts = {
+    page: +page,
+    limit: +limit,
+    sort: sort
+  };
+
+  let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  await hasPermission(ctx.state._user, 'VIEW');
+
+
+  try {
+    let user = ctx.state._user;
+    let stats = [];
+
+    let branches = await Branch.find({}).exec();
+
+    for(let branch of branches) {
+      let count = await Client.count({
+        branch: branch._id
+      }).exec();
+
+      stats.push({
+        _id: branch._id,
+        name: branch.name,
+        no_of_clients: count
+      })
+    }
+
+    await ReportDal.create({
+      type: reportType._id,
+      data: stats
+    })
+
+    return stats;
+
+  } catch(ex) {
     throw ex;
   }
 }

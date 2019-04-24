@@ -212,11 +212,13 @@ exports.testJsReport = function* testJsReport(next){
 
   let report = yield jsreportService.generateSampleReport({});
 
-  fs.writeFileSync("../test.pdf",report)
+  // fs.writeFileSync("../test.pdf",report)
 
-  this.body = {
-    "path":"../test.pdf"
-  }
+  // this.body = {
+  //   "path":"../test.pdf"
+  // }
+
+  this.body = report;
 
   }catch(ex) {
     return this.throw(new CustomError({

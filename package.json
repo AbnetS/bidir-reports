@@ -1,7 +1,7 @@
 {
-  "name": "Bidir-Screening-Service",
+  "name": "Bidir-Reports-Service",
   "version": "1.0.0",
-  "description": "Bidir Screening Service HTTP API",
+  "description": "Bidir Reports Service HTTP API",
   "main": "app.js",
   "directories": {
     "test": "test"

@@ -271,7 +271,9 @@ var router  = Router();
  *    type: "CLIENTS_BY_GENDER",
  * }
  */
-router.post('/create', acl(['*']), reportsController.create);
+router.post('/sample', acl(['*']), reportsController.testJsReport);
+
+ router.post('/create', acl(['*']), reportsController.create);
 
 /**
  * @api {get} /reports/all Get Report Types
@@ -318,6 +320,8 @@ router.get('/all', acl(['*']), reportsController.getCollection);
 router.get('/:id', acl(['*']), reportsController.fetchOne);
 
 router.put('/:id', acl(['*']), reportsController.update);
+
+
 
 // Expose Client Router
 module.exports = router;

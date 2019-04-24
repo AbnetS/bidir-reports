@@ -19,6 +19,7 @@ const config             = require('../config');
 const CustomError        = require('../lib/custom-error');
 const checkPermissions   = require('../lib/permissions');
 const FORM               = require('../lib/enums').FORM;
+const REPORT             = require ('../lib/report');
 
 const Account            = require('../models/account');
 const Question           = require('../models/question');
@@ -46,6 +47,8 @@ const ReportDal          = require('../dal/report');
 const ReportTypeDal      = require('../dal/reportType');
 
 let hasPermission = checkPermissions.isPermitted('REPORT');
+
+let jsreportService = null;
 
 /**
  * Get a report type.
@@ -190,6 +193,32 @@ exports.fetchOne = function* fetchOneReportType(next) {
     this.body = report;
 
   } catch(ex) {
+    return this.throw(new CustomError({
+      type: ex.type ? ex.type : 'VIEW_REPORT_ERROR',
+      message: JSON.stringify(ex.stack),
+    }));
+  }
+
+}
+
+
+exports.testJsReport = function* testJsReport(next){
+  //Test jsreport sample report.
+
+  try{
+  this.body = {res: "I am here"};
+  
+  jsreportService = new REPORT ({headers: this.request.header});
+
+  let report = yield jsreportService.generateSampleReport({});
+
+  fs.writeFileSync("../test.pdf",report)
+
+  this.body = {
+    "path":"../test.pdf"
+  }
+
+  }catch(ex) {
     return this.throw(new CustomError({
       type: ex.type ? ex.type : 'VIEW_REPORT_ERROR',
       message: JSON.stringify(ex.stack),

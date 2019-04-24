@@ -54,7 +54,9 @@ let config = {
     DIR: path.resolve(process.cwd(), './assets') + '/',
     PROD: 'http://api.bidir.gebeya.co/assets/',
     DEV: 'http://api.dev.bidir.gebeya.co/assets/'
-  }
+  },
+
+  outFolder: "c:\Ezu"
 };
 
 module.exports = config;

@@ -56,7 +56,10 @@ let config = {
     DEV: 'http://api.dev.bidir.gebeya.co/assets/'
   },
 
-  outFolder: "c:\Ezu"
+  DOCX_WASM_API_KEY: {
+    ND_DEV_ID: "39JK0J92MMNMTD2IHI6QA5H5M1",
+    ND_DEV_SECRET: "41K5E3NC244HG9QNQPDI4QIO62"
+  }
 };
 
 module.exports = config;

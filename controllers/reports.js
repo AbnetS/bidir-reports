@@ -28,7 +28,7 @@ const CustomError        = require('../lib/custom-error');
 const checkPermissions   = require('../lib/permissions');
 const FORM               = require('../lib/enums').FORM;
 const REPORT             = require ('../lib/report');
-const pdfConverter       = require ('../lib/pdfconverter')
+const PDF_CONVERTER       = require ('../lib/pdfconverter')
 
 const Account            = require('../models/account');
 const Question           = require('../models/question');
@@ -264,13 +264,19 @@ exports.testJsReport = function* testJsReport(next){
     }
   ]
 
+  let pdfConverter = new PDF_CONVERTER();
+
+
   
   let report = yield testNow(data);
-  let pdf = yield convertHelper(report,"exportPDF");
+
+    //let pdf = yield convertHelper(report,"exportPDF");
+
+  let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
   //this.body = report;
   //this.body = {report: report.toString('base64')};
   console.log(pdf)
-  let buf = Buffer.from(pdf);
+  let buf = Buffer.from(report);
   console.log(buf);
   this.body = buf;
    
@@ -322,7 +328,7 @@ docx.init({
   console.error(e);
 });
 
-async function convertHelper(document, exportFct) {
+async function convertHelper(document, exportFct) { 
   const api = await docx.engine();
   await api.load(document);
   const arrayBuffer = await api[exportFct]();

@@ -5,6 +5,7 @@
 const crypto  = require('crypto');
 const path    = require('path');
 const url     = require('url');
+const carbone = require ('carbone');
 
 const debug      = require('debug')('api:client-controller');
 const moment     = require('moment');
@@ -14,12 +15,20 @@ const co         = require('co');
 const del        = require('del');
 const validator  = require('validator');
 const fs         = require('fs-extra');
+const async      = require ('async');
+const util       = require ('util');
+//const pdfjs = require('pdfjs-dist');
+
+//const fs = require('fs');
+const docx = require("@nativedocuments/docx-wasm");
+
 
 const config             = require('../config');
 const CustomError        = require('../lib/custom-error');
 const checkPermissions   = require('../lib/permissions');
 const FORM               = require('../lib/enums').FORM;
 const REPORT             = require ('../lib/report');
+const pdfConverter       = require ('../lib/pdfconverter')
 
 const Account            = require('../models/account');
 const Question           = require('../models/question');
@@ -202,7 +211,7 @@ exports.fetchOne = function* fetchOneReportType(next) {
 }
 
 
-exports.testJsReport = function* testJsReport(next){
+exports.testJsReport2 = function* testJsReport2(next){
   //Test jsreport sample report.
 
   try{
@@ -228,6 +237,100 @@ exports.testJsReport = function* testJsReport(next){
   }
 
 }
+
+exports.testJsReport = function* testJsReport(next){
+  let data = [
+    {
+      movieName: "Mizan",
+      actors:[{
+        firstname: "WubEngida",
+        lastname: "Abate"
+      },
+      {
+        firstname: "Abel",
+        lastname: "Mulugeta"
+      }]
+    },
+    {
+      movieName: "Mogachoch",
+      actors:[{
+        firstname: "Selam",
+        lastname: "Asmare"
+      },
+      {
+        firstname: "Bute",
+        lastname: "Kassaye"
+      }]
+    }
+  ]
+
+  
+  let report = yield testNow(data);
+  let pdf = yield convertHelper(report,"exportPDF");
+  //this.body = report;
+  //this.body = {report: report.toString('base64')};
+  console.log(pdf)
+  let buf = Buffer.from(pdf);
+  console.log(buf);
+  this.body = buf;
+   
+  
+} 
+
+
+
+
+
+async function testNow(data){
+
+  let func =  util.promisify(_test);
+
+    let result;
+    try {
+      result = await func(data);      
+      return result;
+    } catch (err) {
+      return err;
+    } 
+  
+  
+}
+
+function _test(data,cb){
+  carbone.render('./node_modules/carbone/examples/movies.docx', data, function (err, result){
+    if (err) {        
+        cb(err);
+    }
+    //fs.writeFileSync('C:/Users/user/Documents/TestReports/result.docx', result);
+   let buf = Buffer.from (result);
+   cb(null, buf);
+    
+
+
+    })
+}
+
+
+
+//init docx engine
+docx.init({
+  ND_DEV_ID: "39JK0J92MMNMTD2IHI6QA5H5M1",
+  ND_DEV_SECRET: "41K5E3NC244HG9QNQPDI4QIO62",
+  ENVIRONMENT: "NODE", // required
+  LAZY_INIT: true      // if set to false the WASM engine will be initialized right now, usefull pre-caching (like e.g. for AWS lambda)
+}).catch( function(e) {
+  console.error(e);
+});
+
+async function convertHelper(document, exportFct) {
+  const api = await docx.engine();
+  await api.load(document);
+  const arrayBuffer = await api[exportFct]();
+  await api.close();
+  return arrayBuffer;
+}
+
+
 
 // Reports Generator
 

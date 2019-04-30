@@ -17,6 +17,8 @@ const validator  = require('validator');
 const fs         = require('fs-extra');
 const async      = require ('async');
 const util       = require ('util');
+const mammoth    = require ('mammoth-style');
+
 //const pdfjs = require('pdfjs-dist');
 
 //const fs = require('fs');
@@ -210,6 +212,77 @@ exports.fetchOne = function* fetchOneReportType(next) {
 
 }
 
+exports.fetchPdf  = function* fetchPdf(next){
+  let data = [
+    {
+      movieName: "Mizan",
+      actors:[{
+        firstname: "WubEngida",
+        lastname: "Abate"
+      },
+      {
+        firstname: "Abel",
+        lastname: "Mulugeta"
+      }]
+    },
+    {
+      movieName: "Mogachoch",
+      actors:[{
+        firstname: "Selam",
+        lastname: "Asmare"
+      },
+      {
+        firstname: "Bute",
+        lastname: "Kassaye"
+      }]
+    }
+  ]
+
+  let report = yield testNow(data);
+
+  let pdfConverter = new PDF_CONVERTER(); 
+
+  let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
+  
+  let buf = Buffer.from(pdf);
+  
+  this.body = buf;
+
+}
+
+exports.fetchDocx  = function* fetchDocx(next){
+  let data = [
+    {
+      movieName: "Mizan",
+      actors:[{
+        firstname: "WubEngida",
+        lastname: "Abate"
+      },
+      {
+        firstname: "Abel",
+        lastname: "Mulugeta"
+      }]
+    },
+    {
+      movieName: "Mogachoch",
+      actors:[{
+        firstname: "Selam",
+        lastname: "Asmare"
+      },
+      {
+        firstname: "Bute",
+        lastname: "Kassaye"
+      }]
+    }
+  ]
+
+  let report = yield testNow(data);
+  let buf = Buffer.from(report);
+  
+  this.body = buf;
+
+}
+
 
 exports.testJsReport2 = function* testJsReport2(next){
   //Test jsreport sample report.
@@ -264,20 +337,75 @@ exports.testJsReport = function* testJsReport(next){
     }
   ]
 
+  let data2= [
+    {
+        client: "Debela Ibssa Gutema",
+        loan_cycles: [{
+          crops: [
+              "Tomato"
+          ],
+          loan_cycle_no: 1,
+          estimated_total_cost: 0,
+          estimated_total_revenue: 0,
+          actual_total_cost: 0,
+          actual_total_revenue: 0,
+          loan_requested: 0,
+          loan_approved: 18000
+      }]
+    },
+    
+    {
+        client: "Hg Gh G",
+        loan_cycles: [
+            {
+                crops: [
+                    "Tomato"
+                ],
+                loan_cycle_no: 1,
+                estimated_total_cost: 0,
+                estimated_total_revenue: 0,
+                actual_total_cost: 0,
+                actual_total_revenue: 0,
+                loan_requested: 0,
+                loan_approved: 18000
+            },
+            {
+                crops: [
+                    "Tomato"
+                ],
+                loan_cycle_no: 2,
+                estimated_total_cost: 0,
+                estimated_total_revenue: 0,
+                actual_total_cost: 0,
+                actual_total_revenue: 0,
+                loan_requested: 0,
+                loan_approved: 25500
+            }
+        ]
+    }
+    
+]
+
   let pdfConverter = new PDF_CONVERTER();
 
 
   
-  let report = yield testNow(data);
+  let report = yield testNow(data2);
 
-    //let pdf = yield convertHelper(report,"exportPDF");
+  let pdf = yield convertHelper(report,"exportPDF");
 
-  let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
+  //let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
+  
+  let buf = Buffer.from(report);
+  
+  let html = yield mammoth.convertToHtml ({buffer: buf, styleMap: [
+    "p[style-name='Title'] => h1:fresh",
+    "p[style-name='Subsection Title'] => h2:fresh"
+  ]});
   //this.body = report;
   //this.body = {report: report.toString('base64')};
-  console.log(pdf)
-  let buf = Buffer.from(report);
-  console.log(buf);
+  //console.log(pdf)
+  //let buf2 = Buffer.from(html);
   this.body = buf;
    
   
@@ -310,6 +438,14 @@ function _test(data,cb){
     //fs.writeFileSync('C:/Users/user/Documents/TestReports/result.docx', result);
    let buf = Buffer.from (result);
    cb(null, buf);
+
+  // carbone.render('./templates/CLIENT LOAN HISTORY REPORT TEMPLATE.docx', data, function (err, result){
+  //   if (err) {        
+  //       cb(err);
+  //   }
+  //   //fs.writeFileSync('C:/Users/user/Documents/TestReports/result.docx', result);
+  //  let buf = Buffer.from (result);
+  //  cb(null, buf);
     
 
 

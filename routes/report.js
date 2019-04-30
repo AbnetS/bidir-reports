@@ -319,6 +319,10 @@ router.get('/all', acl(['*']), reportsController.getCollection);
  */
 router.get('/:id', acl(['*']), reportsController.fetchOne);
 
+router.get('/:id/pdf', acl(['*']), reportsController.fetchPdf)
+
+router.get('/:id/docx', acl(['*']), reportsController.fetchDocx)
+
 router.put('/:id', acl(['*']), reportsController.update);
 
 

@@ -49,6 +49,8 @@
     "koa-unless": "0.0.1",
     "koa-validate": "~1.0.7",
     "lodash": "~4.17.11",
+    "mammoth": "^1.4.8",
+    "mammoth-style": "0.0.1",
     "moment": "~2.22.2",
     "mongoose": "~5.3.16",
     "mongoose-paginate": "~5.0.0",

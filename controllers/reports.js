@@ -18,6 +18,7 @@ const fs         = require('fs-extra');
 const async      = require ('async');
 const util       = require ('util');
 const mammoth    = require ('mammoth-style');
+const docxConverter = require('docx-pdf');
 
 //const pdfjs = require('pdfjs-dist');
 
@@ -239,12 +240,23 @@ exports.fetchPdf  = function* fetchPdf(next){
   ]
 
   let report = yield testNow(data);
+  
+  //fs.writeFileSync("./temp/report.docx", report);
+  //let pdf = yield convertoPdf("./temp/report.docx", "./temp/report.pdf");
+  // let xx = fs.readFileSync('./temp/report.pdf')
+  // let buf = Buffer.from(xx);
 
+  
   let pdfConverter = new PDF_CONVERTER(); 
 
   let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
   
-  let buf = Buffer.from(pdf);
+  
+
+  //remove the temporary files
+  fs.unlinkSync("./temp/report.docx");
+  fs.unlinkSync("./temp/report.pdf");
+
   
   this.body = buf;
 
@@ -276,10 +288,11 @@ exports.fetchDocx  = function* fetchDocx(next){
     }
   ]
 
-  let report = yield testNow(data);
+  let template = "./node_modules/carbone/examples/movies.docx"
+  let report = yield testNow(data,template);
   let buf = Buffer.from(report);
   
-  this.body = buf;
+  this.body = report;
 
 }
 
@@ -345,12 +358,12 @@ exports.testJsReport = function* testJsReport(next){
               "Tomato"
           ],
           loan_cycle_no: 1,
-          estimated_total_cost: 0,
-          estimated_total_revenue: 0,
-          actual_total_cost: 0,
-          actual_total_revenue: 0,
-          loan_requested: 0,
-          loan_approved: 18000
+          estimated_total_cost: 25000,
+          estimated_total_revenue: 40000,
+          actual_total_cost: 30000,
+          actual_total_revenue: 420000,
+          loan_requested: 20000,
+          loan_approved: 15000
       }]
     },
     
@@ -389,19 +402,16 @@ exports.testJsReport = function* testJsReport(next){
   let pdfConverter = new PDF_CONVERTER();
 
 
-  
-  let report = yield testNow(data2);
+  let template = "./templates/CLIENT LOAN HISTORY REPORT TEMPLATE.docx"
+  let report = yield testNow(data2, template);
 
-  let pdf = yield convertHelper(report,"exportPDF");
+  //let pdf = yield convertHelper(report,"exportPDF");
 
   //let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
   
   let buf = Buffer.from(report);
   
-  let html = yield mammoth.convertToHtml ({buffer: buf, styleMap: [
-    "p[style-name='Title'] => h1:fresh",
-    "p[style-name='Subsection Title'] => h2:fresh"
-  ]});
+ 
   //this.body = report;
   //this.body = {report: report.toString('base64')};
   //console.log(pdf)
@@ -415,13 +425,13 @@ exports.testJsReport = function* testJsReport(next){
 
 
 
-async function testNow(data){
+async function testNow(data, template){
 
   let func =  util.promisify(_test);
 
     let result;
     try {
-      result = await func(data);      
+      result = await func(data, template);      
       return result;
     } catch (err) {
       return err;
@@ -430,14 +440,19 @@ async function testNow(data){
   
 }
 
-function _test(data,cb){
-  carbone.render('./node_modules/carbone/examples/movies.docx', data, function (err, result){
+function _test(data,template, cb){
+  let options = {
+    convertTo : 'pdf' //can be docx, txt, ...
+  };
+  carbone.render(template, data, options, function (err, result){
     if (err) {        
         cb(err);
     }
-    //fs.writeFileSync('C:/Users/user/Documents/TestReports/result.docx', result);
+  //fs.writeFileSync('C:/Users/user/Documents/TestReports/result.pdf', result);
    let buf = Buffer.from (result);
-   cb(null, buf);
+   cb(null, result);
+   //process.exit();
+
 
   // carbone.render('./templates/CLIENT LOAN HISTORY REPORT TEMPLATE.docx', data, function (err, result){
   //   if (err) {        
@@ -454,23 +469,34 @@ function _test(data,cb){
 
 
 
-//init docx engine
-docx.init({
-  ND_DEV_ID: "39JK0J92MMNMTD2IHI6QA5H5M1",
-  ND_DEV_SECRET: "41K5E3NC244HG9QNQPDI4QIO62",
-  ENVIRONMENT: "NODE", // required
-  LAZY_INIT: true      // if set to false the WASM engine will be initialized right now, usefull pre-caching (like e.g. for AWS lambda)
-}).catch( function(e) {
-  console.error(e);
-});
+function _convertToPdf(input, output, cb){
+  docxConverter(input,output,function(err,result){
+    if(err){
+      cb(err);
+    }
+    cb(null, result);
+  });
 
-async function convertHelper(document, exportFct) { 
-  const api = await docx.engine();
-  await api.load(document);
-  const arrayBuffer = await api[exportFct]();
-  await api.close();
-  return arrayBuffer;
 }
+
+async function convertoPdf(input, output){
+
+  let func =  util.promisify(_convertToPdf);
+
+    let result;
+    try {
+      result = await func(input, output);      
+      return result;
+    } catch (err) {
+      return err;
+    } 
+  
+  
+}
+
+
+
+
 
 
 

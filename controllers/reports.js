@@ -262,7 +262,7 @@ exports.fetchPdf  = function* fetchPdf(next){
 
 }
 
-exports.fetchDocx  = function* fetchDocx(next){
+exports.fetchDocx2  = function* fetchDocx2(next){
   let data = [
     {
       movieName: "Mizan",
@@ -291,6 +291,70 @@ exports.fetchDocx  = function* fetchDocx(next){
   let template = "./node_modules/carbone/examples/movies.docx"
   let report = yield testNow(data,template);
   let buf = Buffer.from(report);
+  
+  this.body = buf;
+
+}
+
+exports.fetchDocx  = function* fetchDocx(next){
+  let data2= [
+    {
+        client: "Debela Ibssa Gutema",
+        loan_cycles: [{
+          crops: [
+              "Tomato"
+          ],
+          loan_cycle_no: 1,
+          estimated_total_cost: 25000,
+          estimated_total_revenue: 40000,
+          actual_total_cost: 30000,
+          actual_total_revenue: 420000,
+          loan_requested: 20000,
+          loan_approved: 15000
+      }]
+    },
+    
+    {
+        client: "Hg Gh G",
+        loan_cycles: [
+            {
+                crops: [
+                    "Tomato"
+                ],
+                loan_cycle_no: 1,
+                estimated_total_cost: 0,
+                estimated_total_revenue: 0,
+                actual_total_cost: 0,
+                actual_total_revenue: 0,
+                loan_requested: 0,
+                loan_approved: 18000
+            },
+            {
+                crops: [
+                    "Tomato"
+                ],
+                loan_cycle_no: 2,
+                estimated_total_cost: 0,
+                estimated_total_revenue: 0,
+                actual_total_cost: 0,
+                actual_total_revenue: 0,
+                loan_requested: 0,
+                loan_approved: 25500
+            }
+        ]
+    }
+    
+]
+
+ 
+
+  let template = "./templates/CLIENT LOAN HISTORY REPORT TEMPLATE.docx"
+  let report = yield testNow(data2, template);
+
+  
+  let buf = Buffer.from(report);
+  
+ 
   
   this.body = buf;
 

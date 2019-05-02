@@ -449,7 +449,7 @@ function _test(data,template, cb){
         cb(err);
     }
   //fs.writeFileSync('C:/Users/user/Documents/TestReports/result.pdf', result);
-   let buf = Buffer.from (result);
+   //let buf = Buffer.from (result);
    cb(null, result);
    //process.exit();
 

@@ -292,7 +292,7 @@ exports.fetchDocx  = function* fetchDocx(next){
   let report = yield testNow(data,template);
   let buf = Buffer.from(report);
   
-  this.body = report;
+  this.body = buf;
 
 }
 

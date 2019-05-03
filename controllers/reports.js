@@ -19,6 +19,7 @@ const async      = require ('async');
 const util       = require ('util');
 const mammoth    = require ('mammoth-style');
 const docxConverter = require('docx-pdf');
+const libreConvert  = require ('libreoffice-convert')
 
 //const pdfjs = require('pdfjs-dist');
 
@@ -474,6 +475,11 @@ exports.testJsReport = function* testJsReport(next){
   //let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
   
   let buf = Buffer.from(report);
+
+  fs.writeFileSync("./temp/report.docx", report);
+  let pdf = yield libreConverter("./temp/report.docx");
+  buf = Buffer.from(pdf);
+
   
  
   //this.body = report;
@@ -484,6 +490,8 @@ exports.testJsReport = function* testJsReport(next){
    
   
 } 
+
+
 
 
 
@@ -505,30 +513,46 @@ async function testNow(data, template){
 }
 
 function _test(data,template, cb){
-  let options = {
-    convertTo : 'pdf' //can be docx, txt, ...
-  };
-  carbone.render(template, data, options, function (err, result){
+  // let options = {
+  //   convertTo : 'pdf' //can be docx, txt, ...
+  // };
+  carbone.render(template, data, function (err, result){
     if (err) {        
         cb(err);
-    }
-  //fs.writeFileSync('C:/Users/user/Documents/TestReports/result.pdf', result);
-   //let buf = Buffer.from (result);
+    }  
    cb(null, result);
-   //process.exit();
-
-
-  // carbone.render('./templates/CLIENT LOAN HISTORY REPORT TEMPLATE.docx', data, function (err, result){
-  //   if (err) {        
-  //       cb(err);
-  //   }
-  //   //fs.writeFileSync('C:/Users/user/Documents/TestReports/result.docx', result);
-  //  let buf = Buffer.from (result);
-  //  cb(null, buf);
-    
-
+   
 
     })
+}
+
+function _libreConverter(input, cb){
+  // Read file
+  const docx = fs.readFileSync(input);
+  // Convert it to pdf format with undefined filter (see Libreoffice doc about filter)
+  libreConvert.convert(docx, 'pdf', undefined, (err, done) => {
+    if (err) {
+     cb(err);
+    }
+    
+    // Here in done you have pdf file which you can save or transfer in another stream
+    cb(null, done);
+});
+}
+
+async function libreConverter(input){
+
+  let func =  util.promisify(_libreConverter);
+
+    let result;
+    try {
+      result = await func(input);      
+      return Buffer.from(result);
+    } catch (err) {
+      return err;
+    } 
+  
+  
 }
 
 

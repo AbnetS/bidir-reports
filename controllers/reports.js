@@ -239,7 +239,7 @@ exports.fetchPdf  = function* fetchPdf(next){
     }
   ]
 
-  let report = yield testNow(data);
+  let report = yield testNow(data, template);
   
   //fs.writeFileSync("./temp/report.docx", report);
   //let pdf = yield convertoPdf("./temp/report.docx", "./temp/report.pdf");

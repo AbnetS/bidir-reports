@@ -29,6 +29,7 @@
     "async": "^2.6.2",
     "base64-img": "^1.0.4",
     "bcrypt": "~0.8.7",
+    "carbone": "^1.2.0",
     "chance": "~1.0.4",
     "cloud-storage": "^0.1.3",
     "co": "~4.6.0",

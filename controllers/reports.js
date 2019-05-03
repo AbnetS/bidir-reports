@@ -240,6 +240,7 @@ exports.fetchPdf  = function* fetchPdf(next){
     }
   ]
 
+  let template = "./node_modules/carbone/examples/movies.docx"
   let report = yield testNow(data, template);
   
   //fs.writeFileSync("./temp/report.docx", report);
@@ -478,7 +479,7 @@ exports.testJsReport = function* testJsReport(next){
 
   fs.writeFileSync("./temp/report.docx", report);
   let pdf = yield libreConverter("./temp/report.docx");
-  buf = Buffer.from(pdf);
+  //buf = Buffer.from(pdf);
 
   
  
@@ -486,7 +487,9 @@ exports.testJsReport = function* testJsReport(next){
   //this.body = {report: report.toString('base64')};
   //console.log(pdf)
   //let buf2 = Buffer.from(html);
-  this.body = buf;
+  this.body = {
+    pdf: pdf
+  }
    
   
 } 

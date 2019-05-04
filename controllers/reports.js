@@ -19,7 +19,7 @@ const async      = require ('async');
 const util       = require ('util');
 const mammoth    = require ('mammoth-style');
 const docxConverter = require('docx-pdf');
-const libreConvert  = require ('libreoffice-convert')
+const libreConvert  = require ('../lib/libreConverter')
 
 //const pdfjs = require('pdfjs-dist');
 
@@ -479,7 +479,7 @@ exports.testJsReport = function* testJsReport(next){
 
   fs.writeFileSync("./temp/report.docx", report);
   let pdf = yield libreConverter("./temp/report.docx");
-  //buf = Buffer.from(pdf);
+  buf = Buffer.from(pdf);
 
   
  
@@ -487,9 +487,7 @@ exports.testJsReport = function* testJsReport(next){
   //this.body = {report: report.toString('base64')};
   //console.log(pdf)
   //let buf2 = Buffer.from(html);
-  this.body = {
-    pdf: pdf
-  }
+  this.body = buf;
    
   
 } 

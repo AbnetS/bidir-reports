@@ -283,7 +283,7 @@ exports.fetchPdf  = function* fetchPdf(next){
   // buf = Buffer.from(pdf);
   
 
-  this.body = pdf[0].toString();
+  this.body = pdf;
   // this.return = buf;
 
 } catch(ex) {

@@ -6,7 +6,7 @@ const crypto  = require('crypto');
 const path    = require('path');
 const url     = require('url');
 const carbone = require ('carbone');
-//const process = require ('child_process')
+const { exec }  = require ('child_process')
 
 const debug      = require('debug')('api:client-controller');
 const moment     = require('moment');
@@ -301,9 +301,36 @@ exports.fetchPdf  = function* fetchPdf(next){
 exports.testPlatform = function* testPlatform(next){
   let platform = process.platform;
 
+  let indir = "./temp/test.docx"
+  let outdirc = "./temp/test.pdf"
+
+  // let command = "\"C:/Program Files/LibreOffice/program/soffice.exe\" --headless --convert-to pdf --outdir " +
+  //       outdirc +" " + indir
+  
+  let command = "/lib/libreoffice/program/soffice --headless --convert-to pdf --outdir " +
+          outdirc +" " + indir
+  
+  let x = yield execCommand(command)
+
+
   this.body = {
-    "platform": platform
+    "platform": platform,
+    "x": x
   };
+}
+
+async function execCommand (command){
+  let func = util.promisify(function execcmd(command, cb){
+    exec (command, function (err, res){
+      if (err) {return cb(err)}
+
+      return cb(null, res)
+    })
+    
+  })
+
+  return await func(command)
+
 }
 
 exports.fetchDocx2  = function* fetchDocx2(next){

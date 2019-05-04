@@ -307,8 +307,9 @@ exports.testPlatform = function* testPlatform(next){
   // let command = "\"C:/Program Files/LibreOffice/program/soffice.exe\" --headless --convert-to pdf --outdir " +
   //       outdirc +" " + indir
   
-  let command = "/lib/libreoffice/program/soffice --headless --convert-to pdf --outdir " +
-          outdirc +" " + indir
+  //let command = "/lib/libreoffice/program/soffice --headless --convert-to pdf --outdir " +
+          // outdirc +" " + indir
+  let command = "docker run --rm -v $(pwd)/mybashscript.sh:/mybashscript.sh ubuntu bash /mybashscript.sh"
   
   let x = yield execCommand(command)
 

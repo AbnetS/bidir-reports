@@ -6,6 +6,7 @@ const crypto  = require('crypto');
 const path    = require('path');
 const url     = require('url');
 const carbone = require ('carbone');
+//const process = require ('child_process')
 
 const debug      = require('debug')('api:client-controller');
 const moment     = require('moment');
@@ -20,6 +21,7 @@ const util       = require ('util');
 const mammoth    = require ('mammoth-style');
 const docxConverter = require('docx-pdf');
 const libreConvert  = require ('../lib/libreConverter')
+
 
 //const pdfjs = require('pdfjs-dist');
 
@@ -272,10 +274,10 @@ exports.fetchPdf  = function* fetchPdf(next){
   let buf = Buffer.from(report);
   
   //***********convert to pdf using the LibreOffice converter library**************/  
-  fs.writeFileSync("./templates/report.docx", report);
+  fs.writeFileSync("./temp/report.docx", report);
   let pdf = yield libreConverter("./temp/report.docx");
-  //buf = Buffer.from(pdf);
-  fs.unlinkSync("./templates/report.docx");
+  buf = Buffer.from(pdf);
+  fs.unlinkSync("./temp/report.docx");
 
   //***********convert to pdf using the docx-wasm pdf converter which has higher quality**************/
   // let pdfConverter = new PDF_CONVERTER();
@@ -283,8 +285,8 @@ exports.fetchPdf  = function* fetchPdf(next){
   // buf = Buffer.from(pdf);
   
 
-  this.body = pdf;
-  // this.return = buf;
+  //this.body = pdf;
+  this.body = buf;
 
 } catch(ex) {
   return this.throw(new CustomError({
@@ -294,6 +296,14 @@ exports.fetchPdf  = function* fetchPdf(next){
 }
   
 
+}
+
+exports.testPlatform = function* testPlatform(next){
+  let platform = process.platform;
+
+  this.body = {
+    "platform": platform
+  };
 }
 
 exports.fetchDocx2  = function* fetchDocx2(next){
@@ -588,8 +598,8 @@ async function libreConverter(input){
     let result;
     try {
       result = await func(input);      
-      //return Buffer.from(result);
-      return result;
+      return Buffer.from(result);
+    
     } catch (err) {
       return err;
     } 

@@ -323,6 +323,10 @@ router.get('/:id/pdf', acl(['*']), reportsController.fetchPdf)
 
 router.get('/:id/docx', acl(['*']), reportsController.fetchDocx)
 
+router.get('/:id/test', acl(['*']), reportsController.testPlatform)
+
+
+
 router.put('/:id', acl(['*']), reportsController.update);
 
 

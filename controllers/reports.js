@@ -278,9 +278,9 @@ exports.fetchPdf  = function* fetchPdf(next){
   // fs.unlinkSync("./temp/report.docx");
 
   //***********convert to pdf using the docx-wasm pdf converter which has higher quality**************/
-  let pdfConverter = new PDF_CONVERTER();
-  let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
-  buf = Buffer.from(pdf);
+  // let pdfConverter = new PDF_CONVERTER();
+  // let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
+  // buf = Buffer.from(pdf);
 
   this.body = buf;
 
@@ -639,6 +639,7 @@ function* viewClientLoancycleStats(ctx, reportType) {
   try {
     let stats;
 
+    //ctx.query.client = "5bbdfe638a878c00014d4ca8";
     if (ctx.query.client) {
       let query = {
         _id: ctx.query.client
@@ -694,6 +695,7 @@ function* viewClientLoancycleStats(ctx, reportType) {
     async function getStats(client, history) {
       let data = {
         client: `${client.first_name} ${client.last_name} ${client.grandfather_name}`,
+        date: moment().format('MMMM DD, YYYY'),
         loan_cycles: []
       }
       //for each history cycle

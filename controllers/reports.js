@@ -272,18 +272,19 @@ exports.fetchPdf  = function* fetchPdf(next){
   let buf = Buffer.from(report);
   
   //***********convert to pdf using the LibreOffice converter library**************/  
-  // fs.writeFileSync("./temp/report.docx", report);
-  // let pdf = yield libreConverter("./temp/report.docx");
-  // buf = Buffer.from(pdf);
-  // fs.unlinkSync("./temp/report.docx");
+  fs.writeFileSync("./temp/report.docx", report);
+  let pdf = yield libreConverter("./temp/report.docx");
+  //buf = Buffer.from(pdf);
+  fs.unlinkSync("./temp/report.docx");
 
   //***********convert to pdf using the docx-wasm pdf converter which has higher quality**************/
   // let pdfConverter = new PDF_CONVERTER();
   // let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
   // buf = Buffer.from(pdf);
+  
 
-  this.body = buf;
-
+  this.body = pdf[0].toString();
+  // this.return = buf;
 
 } catch(ex) {
   return this.throw(new CustomError({
@@ -587,7 +588,8 @@ async function libreConverter(input){
     let result;
     try {
       result = await func(input);      
-      return Buffer.from(result);
+      //return Buffer.from(result);
+      return result;
     } catch (err) {
       return err;
     } 

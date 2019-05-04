@@ -215,52 +215,83 @@ exports.fetchOne = function* fetchOneReportType(next) {
 }
 
 exports.fetchPdf  = function* fetchPdf(next){
-  let data = [
-    {
-      movieName: "Mizan",
-      actors:[{
-        firstname: "WubEngida",
-        lastname: "Abate"
-      },
-      {
-        firstname: "Abel",
-        lastname: "Mulugeta"
-      }]
-    },
-    {
-      movieName: "Mogachoch",
-      actors:[{
-        firstname: "Selam",
-        lastname: "Asmare"
-      },
-      {
-        firstname: "Bute",
-        lastname: "Kassaye"
-      }]
+  debug(`fetch report type: ${this.params.id}`);
+
+  let query = {
+    _id: this.params.id
+  };
+
+  try {
+    if(this.query.format) {
+      throw new Error(`${this.query.format} not yet implemented!`)
     }
-  ]
 
-  let template = "./node_modules/carbone/examples/movies.docx"
+    let reportType = yield ReportTypeDal.get(query);
+    if (!reportType) {
+      throw new Error('Report Type Does Not Exist!')
+    }
+
+    yield LogDal.track({
+      event: 'view_report',
+      screening: this.state._user._id ,
+      message: `View report - ${reportType.title}`
+    });
+
+    const REPORTS = {
+      CLIENTS_BY_GENDER: viewByGender,
+      CLIENTS_BY_BRANCH: viewByBranch,
+      CROP_STATS: viewCropsStats,
+      LOAN_CYCLE_STAGES_STATS: viewStagesStats,
+      CLIENTS_BY_CROPS: viewByCrops,
+      LOAN_CYCLE_STAGES: viewByStage,
+      CLIENT_LOAN_CYCLE_STATS: viewClientLoancycleStats,
+      CLIENT_LOAN_CYCLE_STATS_SUMMARY: viewClientLoancycleStats
+    };
+
+    let type = Object.keys(REPORTS).filter(function(item){
+      return reportType.type === item
+    });
+
+    if (!type.length) {
+      throw new Error('Report Generator Not Implemented!');
+    }
+
+    let result = yield REPORTS[type[0]](this, reportType);
+    let data = [];
+    if (result.data){
+        data = result.data
+    }
+    else{
+      data.push(result)
+    }    
+
+  let template = "./templates/" + type + ".docx" 
   let report = yield testNow(data, template);
-  
-  //fs.writeFileSync("./temp/report.docx", report);
-  //let pdf = yield convertoPdf("./temp/report.docx", "./temp/report.pdf");
-  // let xx = fs.readFileSync('./temp/report.pdf')
-  // let buf = Buffer.from(xx);
 
   
-  let pdfConverter = new PDF_CONVERTER(); 
+  let buf = Buffer.from(report);
+  
+  //***********convert to pdf using the LibreOffice converter library**************/  
+  // fs.writeFileSync("./temp/report.docx", report);
+  // let pdf = yield libreConverter("./temp/report.docx");
+  // buf = Buffer.from(pdf);
+  // fs.unlinkSync("./temp/report.docx");
 
+  //***********convert to pdf using the docx-wasm pdf converter which has higher quality**************/
+  let pdfConverter = new PDF_CONVERTER();
   let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
-  
-  
+  buf = Buffer.from(pdf);
 
-  //remove the temporary files
-  fs.unlinkSync("./temp/report.docx");
-  fs.unlinkSync("./temp/report.pdf");
-
-  
   this.body = buf;
+
+
+} catch(ex) {
+  return this.throw(new CustomError({
+    type: ex.type ? ex.type : 'VIEW_REPORT_ERROR',
+    message: JSON.stringify(ex.stack),
+  }));
+}
+  
 
 }
 
@@ -299,68 +330,74 @@ exports.fetchDocx2  = function* fetchDocx2(next){
 }
 
 exports.fetchDocx  = function* fetchDocx(next){
-  let data2= [
-    {
-        client: "Debela Ibssa Gutema",
-        loan_cycles: [{
-          crops: [
-              "Tomato"
-          ],
-          loan_cycle_no: 1,
-          estimated_total_cost: 25000,
-          estimated_total_revenue: 40000,
-          actual_total_cost: 30000,
-          actual_total_revenue: 420000,
-          loan_requested: 20000,
-          loan_approved: 15000
-      }]
-    },
-    
-    {
-        client: "Hg Gh G",
-        loan_cycles: [
-            {
-                crops: [
-                    "Tomato"
-                ],
-                loan_cycle_no: 1,
-                estimated_total_cost: 0,
-                estimated_total_revenue: 0,
-                actual_total_cost: 0,
-                actual_total_revenue: 0,
-                loan_requested: 0,
-                loan_approved: 18000
-            },
-            {
-                crops: [
-                    "Tomato"
-                ],
-                loan_cycle_no: 2,
-                estimated_total_cost: 0,
-                estimated_total_revenue: 0,
-                actual_total_cost: 0,
-                actual_total_revenue: 0,
-                loan_requested: 0,
-                loan_approved: 25500
-            }
-        ]
+  debug(`fetch report type: ${this.params.id}`);
+
+  let query = {
+    _id: this.params.id
+  };
+
+  try {
+    if(this.query.format) {
+      throw new Error(`${this.query.format} not yet implemented!`)
     }
-    
-]
 
- 
+    let reportType = yield ReportTypeDal.get(query);
+    if (!reportType) {
+      throw new Error('Report Type Does Not Exist!')
+    }
 
-  let template = "./templates/CLIENT LOAN HISTORY REPORT TEMPLATE.docx"
-  let report = yield testNow(data2, template);
+    yield LogDal.track({
+      event: 'view_report',
+      screening: this.state._user._id ,
+      message: `View report - ${reportType.title}`
+    });
+
+    const REPORTS = {
+      CLIENTS_BY_GENDER: viewByGender,
+      CLIENTS_BY_BRANCH: viewByBranch,
+      CROP_STATS: viewCropsStats,
+      LOAN_CYCLE_STAGES_STATS: viewStagesStats,
+      CLIENTS_BY_CROPS: viewByCrops,
+      LOAN_CYCLE_STAGES: viewByStage,
+      CLIENT_LOAN_CYCLE_STATS: viewClientLoancycleStats,
+      CLIENT_LOAN_CYCLE_STATS_SUMMARY: viewClientLoancycleStats
+    };
+
+    let type = Object.keys(REPORTS).filter(function(item){
+      return reportType.type === item
+    });
+
+    if (!type.length) {
+      throw new Error('Report Generator Not Implemented!');
+    }
+
+    let result = yield REPORTS[type[0]](this, reportType);
+    let data = [];
+    if (result.data){
+        data = result.data
+    }
+    else{
+      data.push(result)
+    }    
+
+  let template = "./templates/" + type + ".docx" 
+  let report = yield testNow(data, template);
 
   
-  let buf = Buffer.from(report);
-  
- 
-  
+  let buf = Buffer.from(report); 
   this.body = buf;
 
+
+} catch(ex) {
+  return this.throw(new CustomError({
+    type: ex.type ? ex.type : 'VIEW_REPORT_ERROR',
+    message: JSON.stringify(ex.stack),
+  }));
 }
+
+}
+
+
 
 
 exports.testJsReport2 = function* testJsReport2(next){
@@ -480,6 +517,7 @@ exports.testJsReport = function* testJsReport(next){
   fs.writeFileSync("./temp/report.docx", report);
   let pdf = yield libreConverter("./temp/report.docx");
   buf = Buffer.from(pdf);
+  fs.unlinkSync("./temp/report.docx");
 
   
  
@@ -514,9 +552,10 @@ async function testNow(data, template){
 }
 
 function _test(data,template, cb){
-  // let options = {
-  //   convertTo : 'pdf' //can be docx, txt, ...
-  // };
+  let options = {
+    //convertTo : 'pdf' //can be docx, txt, ...
+    lang : 'fr'
+  };
   carbone.render(template, data, function (err, result){
     if (err) {        
         cb(err);
@@ -664,7 +703,7 @@ function* viewClientLoancycleStats(ctx, reportType) {
         let loanProposal = await LoanProposal.findOne({ client_acat: clientACAT._id }).exec();
         let acats = await ACATDal.getCollection({ _id: { $in: clientACAT.ACATs }});
         let crops = acats.map(function (acat){
-          return acat.crop.name;
+          return {"name": acat.crop.name};
         });
         let stat = {
           crops: crops,
@@ -672,7 +711,9 @@ function* viewClientLoancycleStats(ctx, reportType) {
           estimated_total_cost: clientACAT.estimated.total_cost,
           estimated_total_revenue: clientACAT.estimated.total_revenue,
           actual_total_cost: clientACAT.achieved.total_cost,
-          actual_total_revenue: clientACAT.achieved.total_cost,
+          actual_total_revenue: clientACAT.achieved.total_revenue,
+          estimated_net_profit: clientACAT.estimated.total_revenue - clientACAT.estimated.total_cost,
+          actual_net_profit: clientACAT.achieved.total_revenue - clientACAT.achieved.total_cost,
           loan_requested: loanProposal ? loanProposal.loan_requested : 0,
           loan_approved: loanProposal ?  loanProposal.loan_approved : 0
         }

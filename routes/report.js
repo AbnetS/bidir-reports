@@ -5,6 +5,7 @@
 const Router  = require('koa-router');
 const debug   = require('debug')('api:client-router');
 
+const updatorController  = require('../controllers/updator');
 const reportsController  = require('../controllers/reports');
 const authController     = require('../controllers/auth');
 
@@ -328,6 +329,10 @@ router.get('/:id/test', acl(['*']), reportsController.testPlatform)
 
 
 router.put('/:id', acl(['*']), reportsController.update);
+
+router.put('/update', acl(['*']), updatorController.update);
+
+
 
 
 

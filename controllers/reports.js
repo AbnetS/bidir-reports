@@ -274,15 +274,15 @@ exports.fetchPdf  = function* fetchPdf(next){
   let buf = Buffer.from(report);
   
   //***********convert to pdf using the LibreOffice converter library**************/  
-  fs.writeFileSync("./temp/report.docx", report);
-  let pdf = yield libreConverter("./temp/report.docx");
-  buf = Buffer.from(pdf);
-  fs.unlinkSync("./temp/report.docx");
+  // fs.writeFileSync("./temp/report.docx", report);
+  // let pdf = yield libreConverter("./temp/report.docx");
+  // buf = Buffer.from(pdf);
+  // fs.unlinkSync("./temp/report.docx");
 
   //***********convert to pdf using the docx-wasm pdf converter which has higher quality**************/
-  // let pdfConverter = new PDF_CONVERTER();
-  // let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
-  // buf = Buffer.from(pdf);
+  let pdfConverter = new PDF_CONVERTER();
+  let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
+  buf = Buffer.from(pdf);
   
 
   //this.body = pdf;
@@ -295,76 +295,6 @@ exports.fetchPdf  = function* fetchPdf(next){
   }));
 }
   
-
-}
-
-exports.testPlatform = function* testPlatform(next){
-  let platform = process.platform;
-
-  let indir = "./temp/test.docx"
-  let outdirc = "./temp/test.pdf"
-
-  // let command = "\"C:/Program Files/LibreOffice/program/soffice.exe\" --headless --convert-to pdf --outdir " +
-  //       outdirc +" " + indir
-  
-  //let command = "/lib/libreoffice/program/soffice --headless --convert-to pdf --outdir " +
-          // outdirc +" " + indir
-  let command = "docker run --rm -v $(pwd)/mybashscript.sh:/mybashscript.sh ubuntu bash /mybashscript.sh"
-  
-  let x = yield execCommand(command)
-
-
-  this.body = {
-    "platform": platform,
-    "x": x
-  };
-}
-
-async function execCommand (command){
-  let func = util.promisify(function execcmd(command, cb){
-    exec (command, function (err, res){
-      if (err) {return cb(err)}
-
-      return cb(null, res)
-    })
-    
-  })
-
-  return await func(command)
-
-}
-
-exports.fetchDocx2  = function* fetchDocx2(next){
-  let data = [
-    {
-      movieName: "Mizan",
-      actors:[{
-        firstname: "WubEngida",
-        lastname: "Abate"
-      },
-      {
-        firstname: "Abel",
-        lastname: "Mulugeta"
-      }]
-    },
-    {
-      movieName: "Mogachoch",
-      actors:[{
-        firstname: "Selam",
-        lastname: "Asmare"
-      },
-      {
-        firstname: "Bute",
-        lastname: "Kassaye"
-      }]
-    }
-  ]
-
-  let template = "./node_modules/carbone/examples/movies.docx"
-  let report = yield testNow(data,template);
-  let buf = Buffer.from(report);
-  
-  this.body = buf;
 
 }
 
@@ -435,6 +365,80 @@ exports.fetchDocx  = function* fetchDocx(next){
 }
 
 }
+
+exports.testPlatform = function* testPlatform(next){
+  let platform = process.platform;
+
+  let indir = "./temp/test.docx"
+  let outdirc = "./temp/test.pdf"
+
+  // let command = "\"C:/Program Files/LibreOffice/program/soffice.exe\" --headless --convert-to pdf --outdir " +
+  //       outdirc +" " + indir
+  
+  //let command = "/lib/libreoffice/program/soffice --headless --convert-to pdf --outdir " +
+          // outdirc +" " + indir
+  let command = "docker run --rm -v $(pwd)/mybashscript.sh:/mybashscript.sh ubuntu bash /mybashscript.sh"
+  
+  let x = yield execCommand(command)
+
+
+  this.body = {
+    "platform": platform,
+    "x": x
+  };
+}
+
+
+
+async function execCommand (command){
+  let func = util.promisify(function execcmd(command, cb){
+    exec (command, function (err, res){
+      if (err) {return cb(err)}
+
+      return cb(null, res)
+    })
+    
+  })
+
+  return await func(command)
+
+}
+
+exports.fetchDocx2  = function* fetchDocx2(next){
+  let data = [
+    {
+      movieName: "Mizan",
+      actors:[{
+        firstname: "WubEngida",
+        lastname: "Abate"
+      },
+      {
+        firstname: "Abel",
+        lastname: "Mulugeta"
+      }]
+    },
+    {
+      movieName: "Mogachoch",
+      actors:[{
+        firstname: "Selam",
+        lastname: "Asmare"
+      },
+      {
+        firstname: "Bute",
+        lastname: "Kassaye"
+      }]
+    }
+  ]
+
+  let template = "./node_modules/carbone/examples/movies.docx"
+  let report = yield testNow(data,template);
+  let buf = Buffer.from(report);
+  
+  this.body = buf;
+
+}
+
+
 
 
 

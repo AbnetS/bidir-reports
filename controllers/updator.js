@@ -140,11 +140,14 @@ function* computeAchievedSubTot (section){
         }
         else if (costList.grouped.length){
             for (i = 0; i < costList.grouped.length; i++){
+                
                 let groupedList = yield GroupedList.findOne({_id: costList.grouped[i]}).exec();
-                if (groupedList.items.length){
-                    for (j = 0; j < groupedList.items; j++){
-                        let costListItem = yield CostListItem.findOne({_id: groupedList.items[j]}).exec();
-                        value += costListItem.achieved.total_price
+                if (groupedList){
+                    if (groupedList.items.length){
+                        for (j = 0; j < groupedList.items; j++){
+                            let costListItem = yield CostListItem.findOne({_id: groupedList.items[j]}).exec();
+                            value += costListItem.achieved.total_price
+                        }
                     }
                 }
             }

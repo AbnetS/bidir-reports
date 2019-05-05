@@ -75,7 +75,7 @@ exports.update = function* updateLoanRequested(next){
 
 exports.aggregateAchieved = function* aggregateAchieved(next){
     //Get All client ACATs
-    let clientACATs = yield ClientACAT.find({client: "5bbdfe638a878c00014d4ca8"}).exec();
+    let clientACATs = yield ClientACAT.find(/*{client: "5bbdfe638a878c00014d4ca8"}*/{}).exec();
     let m=0;
 
     
@@ -99,8 +99,6 @@ exports.aggregateAchieved = function* aggregateAchieved(next){
                 let revenueSection = yield ACATSection.findOne({_id: sections[1]}).exec();
                 let probableSection = yield ACATSection.findOne({_id: revenueSection.sub_sections[0]}).exec();
 
-
-
                 //Do it turn by turn for cost first
                 //1. Seed
                 yield updateSection(seedSection);
@@ -118,14 +116,13 @@ exports.aggregateAchieved = function* aggregateAchieved(next){
 
                 totalACATAppCost += total;
                 totalACATAppRevenue += revenueSection.achieved_revenue;
-            }
-
-            ClientACAT.findOneAndUpdate({_id: clientACATs[i]._id},
-                {$set:{"achieved.total_cost":  totalACATAppCost,
-                        "achieved.total_revenue": totalACATAppRevenue,
-                        "achieved.net_income": totalACATAppRevenue -  totalACATAppCost}})
+            }           
 
         }
+        yield ClientACAT.findOneAndUpdate({_id: clientACATs[i]._id},
+            {$set:{"achieved.total_cost":  totalACATAppCost,
+                    "achieved.total_revenue": totalACATAppRevenue,
+                    "achieved.net_income": totalACATAppRevenue -  totalACATAppCost}})
     }
 
     this.body = m

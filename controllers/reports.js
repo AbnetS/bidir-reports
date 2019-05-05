@@ -704,7 +704,7 @@ function* viewClientLoancycleStats(ctx, reportType) {
     } else {
       // retrieve pagination query params
       let page   = ctx.query.page || 1;
-      let limit  = ctx.query.per_page || 10;
+      let limit  = ctx.query.per_page || 200;
 
       let sortType = ctx.query.sort_by;
       let sort = {};

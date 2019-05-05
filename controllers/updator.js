@@ -75,7 +75,7 @@ exports.update = function* updateLoanRequested(next){
 
 exports.aggregateAchieved = function* aggregateAchieved(next){
     //Get All client ACATs
-    let clientACATs = yield ClientACAT.find(/*{client: "5bbdfe638a878c00014d4ca8"}*/{}).exec();
+    let clientACATs = yield ClientACAT.find({client: "5bbdfe638a878c00014d4ca8"}).exec();
     let m=0;
 
     

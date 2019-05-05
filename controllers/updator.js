@@ -30,7 +30,7 @@ exports.update = function* updateLoanRequested(next){
     let response = [];
 
     let clients = yield Client.find({}).exec();
-    for (i = 0; i < clients.length; i++)
+    for (let i = 0; i < clients.length; i++)
     {
         var id = "";
         //Get the loan history
@@ -75,9 +75,12 @@ exports.update = function* updateLoanRequested(next){
 
 exports.aggregateAchieved = function* aggregateAchieved(next){
     //Get All client ACATs
-    let clientACATs = yield ClientACAT.find({_id: "5bbedc9f760f80000195988e"}).exec();
+    //let clientACATs = yield ClientACAT.find({_id: "5bbedc9f760f80000195988e"}).exec();
+    let client = this.query.client;
+    let clientACATs = yield ClientACAT.find({client: client}).exec();
     let m=0;
 
+    
     
 
     for (let i = 0; i < clientACATs.length; i++){
@@ -85,7 +88,7 @@ exports.aggregateAchieved = function* aggregateAchieved(next){
         let totalACATAppRevenue = 0;
         let ACATs = clientACATs[i].ACATs; m++;
         if (ACATs.length){
-            for (j = 0; j < ACATs.length; j++){
+            for (let j = 0; j < ACATs.length; j++){ 
                 let cropACAT = yield CropACAT.findOne({_id: ACATs[j]._id}).exec()
                 let sections = cropACAT.sections;
                 let costSection = yield ACATSection.findOne({_id: sections[0]}).exec();
@@ -138,7 +141,7 @@ function* updateSection(section){
 function* computeAchievedSubTot (section){
     let value = 0;
     if (section.sub_sections.length){
-        for (i = 0; i < section.sub_sections.length; i++){
+        for (let i = 0; i < section.sub_sections.length; i++){
             let innerSection = yield ACATSection.findOne({_id: section.sub_sections[i]}).exec();
             value += innerSection.achieved_sub_total
         }
@@ -146,18 +149,18 @@ function* computeAchievedSubTot (section){
     else if (section.cost_list){
         let costList = yield CostList.findOne({_id: section.cost_list}).exec();
         if (costList.linear.length){
-            for (i = 0; i < costList.linear.length; i++){
+            for (let i = 0; i < costList.linear.length; i++){
                 let costListItem =  yield CostListItem.findOne({_id: costList.linear[i]}).exec();
                 value += costListItem.achieved.total_price
             }
         }
         else if (costList.grouped.length){
-            for (i = 0; i < costList.grouped.length; i++){
+            for (let i = 0; i < costList.grouped.length; i++){
                 
                 let groupedList = yield GroupedList.findOne({_id: costList.grouped[i]}).exec();
                 if (groupedList){
                     if (groupedList.items.length){
-                        for (j = 0; j < groupedList.items; j++){
+                        for (let j = 0; j < groupedList.items.length; j++){
                             let costListItem = yield CostListItem.findOne({_id: groupedList.items[j]}).exec();
                             value += costListItem.achieved.total_price
                         }

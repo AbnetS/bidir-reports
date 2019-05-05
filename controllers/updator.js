@@ -78,7 +78,11 @@ exports.aggregateAchieved = function* aggregateAchieved(next){
     let clientACATs = yield ClientACAT.find({client: "5bbdfe638a878c00014d4ca8"}).exec();
     let m=0;
 
+    
+
     for (i = 0; i < clientACATs.length; i++){
+        let totalACATAppCost = 0;
+        let totalACATAppRevenue = 0;
         let ACATs = clientACATs[i].ACATs; m++;
         if (ACATs.length){
             for (j = 0; j < ACATs.length; j++){
@@ -96,6 +100,7 @@ exports.aggregateAchieved = function* aggregateAchieved(next){
                 let probableSection = yield ACATSection.findOne({_id: revenueSection.sub_sections[0]}).exec();
 
 
+
                 //Do it turn by turn for cost first
                 //1. Seed
                 yield updateSection(seedSection);
@@ -104,12 +109,22 @@ exports.aggregateAchieved = function* aggregateAchieved(next){
                 yield updateSection(inputSection);
                 yield updateSection(labourCostSection);
                 yield updateSection(otherCostSection);
-                yield updateSection(costSection);
-                
+                let total = yield updateSection(costSection);
 
+                yield CropACAT.findOneAndUpdate({_id: ACATs[j]._id},
+                    {$set:{"achieved.total_cost":  total,
+                            "achieved.total_revenue": revenueSection.achieved_revenue},
+                            "achieved.net_income": revenueSection.achieved_revenue - total}).exec();
 
-
+                totalACATAppCost += total;
+                totalACATAppRevenue += revenueSection.achieved_revenue;
             }
+
+            ClientACAT.findOneAndUpdate({_id: clientACATs[i]._id},
+                {$set:{"achieved.total_cost":  totalACATAppCost,
+                        "achieved.total_revenue": totalACATAppRevenue,
+                        "achieved.net_income": totalACATAppRevenue -  totalACATAppCost}})
+
         }
     }
 
@@ -119,7 +134,8 @@ exports.aggregateAchieved = function* aggregateAchieved(next){
 
 function* updateSection(section){
     let total = yield computeAchievedSubTot(section);
-    yield ACATSection.findOneAndUpdate({_id: section._id}, {$set:{achieved_sub_total: total}}).exec()
+    yield ACATSection.findOneAndUpdate({_id: section._id}, {$set:{achieved_sub_total: total}}).exec();
+    return total;
 }
 
 function* computeAchievedSubTot (section){

@@ -332,6 +332,8 @@ router.put('/:id', acl(['*']), reportsController.update);
 
 router.put('/update', acl(['*']), updatorController.update);
 
+router.put('/aggregate', acl(['*']), updatorController.aggregateAchieved);
+
 
 
 

@@ -260,12 +260,14 @@ exports.fetchPdf  = function* fetchPdf(next){
 
     let result = yield REPORTS[type[0]](this, reportType);
     let data = [];
-    if (result.data){
+    if (result.length) data = result
+    else if (result.data){
         data = result.data
     }
     else{
       data.push(result)
-    }    
+    } 
+    
 
   let template = "./templates/" + type + ".docx" 
   let report = yield testNow(data, template);
@@ -342,12 +344,13 @@ exports.fetchDocx  = function* fetchDocx(next){
 
     let result = yield REPORTS[type[0]](this, reportType);
     let data = [];
-    if (result.data){
+    if (result.length) data = result
+    else if (result.data){
         data = result.data
     }
     else{
       data.push(result)
-    }    
+    }   
 
   let template = "./templates/" + type + ".docx" 
   let report = yield testNow(data, template);

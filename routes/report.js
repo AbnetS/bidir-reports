@@ -272,9 +272,7 @@ var router  = Router();
  *    type: "CLIENTS_BY_GENDER",
  * }
  */
-router.post('/sample', acl(['*']), reportsController.testJsReport);
-
- router.post('/create', acl(['*']), reportsController.create);
+router.post('/create', acl(['*']), reportsController.create);
 
 /**
  * @api {get} /reports/all Get Report Types
@@ -318,24 +316,31 @@ router.get('/all', acl(['*']), reportsController.getCollection);
  *    clients_under_acat: 12
  *   }]
  */
+
+
+
+
 router.get('/:id', acl(['*']), reportsController.fetchOne);
+
+
+router.put('/:id', acl(['*']), reportsController.update);
 
 router.get('/:id/pdf', acl(['*']), reportsController.fetchPdf)
 
 router.get('/:id/docx', acl(['*']), reportsController.fetchDocx)
 
-router.get('/:id/test', acl(['*']), reportsController.testPlatform)
 
 
-
-router.put('/:id', acl(['*']), reportsController.update);
 
 router.put('/update', acl(['*']), updatorController.update);
 
 router.put('/aggregate', acl(['*']), updatorController.aggregateAchieved);
 
 
-
+//****Testing endpoints, remove all later */
+//router.post('/sample', acl(['*']), reportsController.testJsReport);
+//router.get('/:id/test', acl(['*']), reportsController.testPlatform)
+//****END */
 
 
 // Expose Client Router

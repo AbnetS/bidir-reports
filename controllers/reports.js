@@ -2,24 +2,13 @@
 /**
  * Load Module Dependencies.
  */
-const crypto  = require('crypto');
-const path    = require('path');
-const url     = require('url');
-const carbone = require ('carbone');
-const { exec }  = require ('child_process')
+
 
 const debug      = require('debug')('api:client-controller');
 const moment     = require('moment');
-const jsonStream = require('streaming-json-stringify');
-const _          = require('lodash');
-const co         = require('co');
-const del        = require('del');
-const validator  = require('validator');
 const fs         = require('fs-extra');
 const async      = require ('async');
 const util       = require ('util');
-const mammoth    = require ('mammoth-style');
-const docxConverter = require('docx-pdf');
 const libreConvert  = require ('../lib/libreConverter')
 
 
@@ -29,18 +18,14 @@ const libreConvert  = require ('../lib/libreConverter')
 const docx = require("@nativedocuments/docx-wasm");
 
 
-const config             = require('../config');
 const CustomError        = require('../lib/custom-error');
 const checkPermissions   = require('../lib/permissions');
-const FORM               = require('../lib/enums').FORM;
-const REPORT             = require ('../lib/report');
-const PDF_CONVERTER       = require ('../lib/pdfconverter')
+const PDF_CONVERTER      = require ('../lib/pdfconverter');//CLASS
+const DOC_GENERATOR      = require ('../lib/doc-generator');//CLASS
+const LIBRE_CONVERTER     = require ('../lib/libre-converter'); //CLASS
 
 const Account            = require('../models/account');
-const Question           = require('../models/question');
-const Form               = require('../models/form');
 const Branch             = require('../models/branch');
-const Section            = require('../models/section');
 const History            = require('../models/history');
 const Crop               = require('../models/crop');
 const ACAT               = require('../models/ACAT');
@@ -48,14 +33,8 @@ const ClientACAT         = require('../models/clientACAT');
 const Client             = require('../models/client');
 const LoanProposal       = require('../models/loanProposal');
 
-const TokenDal           = require('../dal/token');
 const ClientDal          = require('../dal/client');
 const LogDal             = require('../dal/log');
-const ScreeningDal       = require('../dal/screening');
-const FormDal            = require('../dal/form');
-const AccountDal         = require('../dal/account');
-const QuestionDal        = require('../dal/question');
-const SectionDal         = require('../dal/section');
 const HistoryDal         = require('../dal/history');
 const ACATDal            = require('../dal/ACAT');
 const ReportDal          = require('../dal/report');
@@ -64,6 +43,8 @@ const ReportTypeDal      = require('../dal/reportType');
 let hasPermission = checkPermissions.isPermitted('REPORT');
 
 let jsreportService = null;
+
+
 
 /**
  * Get a report type.
@@ -270,18 +251,19 @@ exports.fetchPdf  = function* fetchPdf(next){
     
 
   let template = "./templates/" + type + ".docx" 
-  let report = yield testNow(data, template);
-
+  let docGenerator = new DOC_GENERATOR(); 
+  let report = yield docGenerator.generateDoc(data, template);
   
   let buf = Buffer.from(report);
   
   //***********convert to pdf using the LibreOffice converter library**************/  
+  // let libreConverter = new LIBRE_CONVERTER();
   // fs.writeFileSync("./temp/report.docx", report);
-  // let pdf = yield libreConverter("./temp/report.docx");
-  // buf = Buffer.from(pdf);
+  // let pdf = yield libreConverter.convertToPdf("./temp/report.docx");
+  // //buf = Buffer.from(pdf);
   // fs.unlinkSync("./temp/report.docx");
 
-  //***********convert to pdf using the docx-wasm pdf converter which has higher quality**************/
+  //***********convert to pdf using the docx-wasm pdf converter which has higher quality but needs Internet connection**************/
   let pdfConverter = new PDF_CONVERTER();
   let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
   buf = Buffer.from(pdf);
@@ -352,8 +334,9 @@ exports.fetchDocx  = function* fetchDocx(next){
       data.push(result)
     }   
 
-  let template = "./templates/" + type + ".docx" 
-  let report = yield testNow(data, template);
+  let template = "./templates/" + type + ".docx";
+  let docGenerator = new DOC_GENERATOR(); 
+  let report = yield docGenerator.generateDoc(data, template);
 
   
   let buf = Buffer.from(report); 
@@ -369,313 +352,22 @@ exports.fetchDocx  = function* fetchDocx(next){
 
 }
 
-exports.testPlatform = function* testPlatform(next){
-  let platform = process.platform;
 
-  let indir = "./temp/test.docx"
-  let outdirc = "./temp/test.pdf"
 
-  // let command = "\"C:/Program Files/LibreOffice/program/soffice.exe\" --headless --convert-to pdf --outdir " +
-  //       outdirc +" " + indir
-  
-  //let command = "/lib/libreoffice/program/soffice --headless --convert-to pdf --outdir " +
-          // outdirc +" " + indir
-  let command = "docker run --rm -v $(pwd)/mybashscript.sh:/mybashscript.sh ubuntu bash /mybashscript.sh"
-  
-  let x = yield execCommand(command)
 
 
-  this.body = {
-    "platform": platform,
-    "x": x
-  };
-}
 
 
 
-async function execCommand (command){
-  let func = util.promisify(function execcmd(command, cb){
-    exec (command, function (err, res){
-      if (err) {return cb(err)}
 
-      return cb(null, res)
-    })
-    
-  })
 
-  return await func(command)
 
-}
 
-exports.fetchDocx2  = function* fetchDocx2(next){
-  let data = [
-    {
-      movieName: "Mizan",
-      actors:[{
-        firstname: "WubEngida",
-        lastname: "Abate"
-      },
-      {
-        firstname: "Abel",
-        lastname: "Mulugeta"
-      }]
-    },
-    {
-      movieName: "Mogachoch",
-      actors:[{
-        firstname: "Selam",
-        lastname: "Asmare"
-      },
-      {
-        firstname: "Bute",
-        lastname: "Kassaye"
-      }]
-    }
-  ]
 
-  let template = "./node_modules/carbone/examples/movies.docx"
-  let report = yield testNow(data,template);
-  let buf = Buffer.from(report);
-  
-  this.body = buf;
 
-}
 
 
-
-
-
-
-exports.testJsReport2 = function* testJsReport2(next){
-  //Test jsreport sample report.
-
-  try{
-  this.body = {res: "I am here"};
-  
-  jsreportService = new REPORT ({headers: this.request.header});
-
-  let report = yield jsreportService.generateSampleReport({});
-
-  // fs.writeFileSync("../test.pdf",report)
-
-  // this.body = {
-  //   "path":"../test.pdf"
-  // }
-
-  this.body = report;
-
-  }catch(ex) {
-    return this.throw(new CustomError({
-      type: ex.type ? ex.type : 'VIEW_REPORT_ERROR',
-      message: JSON.stringify(ex.stack),
-    }));
-  }
-
-}
-
-exports.testJsReport = function* testJsReport(next){
-  let data = [
-    {
-      movieName: "Mizan",
-      actors:[{
-        firstname: "WubEngida",
-        lastname: "Abate"
-      },
-      {
-        firstname: "Abel",
-        lastname: "Mulugeta"
-      }]
-    },
-    {
-      movieName: "Mogachoch",
-      actors:[{
-        firstname: "Selam",
-        lastname: "Asmare"
-      },
-      {
-        firstname: "Bute",
-        lastname: "Kassaye"
-      }]
-    }
-  ]
-
-  let data2= [
-    {
-        client: "Debela Ibssa Gutema",
-        loan_cycles: [{
-          crops: [
-              "Tomato"
-          ],
-          loan_cycle_no: 1,
-          estimated_total_cost: 25000,
-          estimated_total_revenue: 40000,
-          actual_total_cost: 30000,
-          actual_total_revenue: 420000,
-          loan_requested: 20000,
-          loan_approved: 15000
-      }]
-    },
-    
-    {
-        client: "Hg Gh G",
-        loan_cycles: [
-            {
-                crops: [
-                    "Tomato"
-                ],
-                loan_cycle_no: 1,
-                estimated_total_cost: 0,
-                estimated_total_revenue: 0,
-                actual_total_cost: 0,
-                actual_total_revenue: 0,
-                loan_requested: 0,
-                loan_approved: 18000
-            },
-            {
-                crops: [
-                    "Tomato"
-                ],
-                loan_cycle_no: 2,
-                estimated_total_cost: 0,
-                estimated_total_revenue: 0,
-                actual_total_cost: 0,
-                actual_total_revenue: 0,
-                loan_requested: 0,
-                loan_approved: 25500
-            }
-        ]
-    }
-    
-]
-
-  let pdfConverter = new PDF_CONVERTER();
-
-
-  let template = "./templates/CLIENT LOAN HISTORY REPORT TEMPLATE.docx"
-  let report = yield testNow(data2, template);
-
-  //let pdf = yield convertHelper(report,"exportPDF");
-
-  //let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
-  
-  let buf = Buffer.from(report);
-
-  fs.writeFileSync("./temp/report.docx", report);
-  let pdf = yield libreConverter("./temp/report.docx");
-  buf = Buffer.from(pdf);
-  fs.unlinkSync("./temp/report.docx");
-
-  
- 
-  //this.body = report;
-  //this.body = {report: report.toString('base64')};
-  //console.log(pdf)
-  //let buf2 = Buffer.from(html);
-  this.body = buf;
-   
-  
-} 
-
-
-
-
-
-
-
-async function testNow(data, template){
-
-  let func =  util.promisify(_test);
-
-    let result;
-    try {
-      result = await func(data, template);      
-      return result;
-    } catch (err) {
-      return err;
-    } 
-  
-  
-}
-
-function _test(data,template, cb){
-  let options = {
-    //convertTo : 'pdf' //can be docx, txt, ...
-    lang : 'fr'
-  };
-  carbone.render(template, data, function (err, result){
-    if (err) {        
-        cb(err);
-    }  
-   cb(null, result);
-   
-
-    })
-}
-
-function _libreConverter(input, cb){
-  // Read file
-  const docx = fs.readFileSync(input);
-  // Convert it to pdf format with undefined filter (see Libreoffice doc about filter)
-  libreConvert.convert(docx, 'pdf', undefined, (err, done) => {
-    if (err) {
-     cb(err);
-    }
-    
-    // Here in done you have pdf file which you can save or transfer in another stream
-    cb(null, done);
-});
-}
-
-async function libreConverter(input){
-
-  let func =  util.promisify(_libreConverter);
-
-    let result;
-    try {
-      result = await func(input);      
-      return Buffer.from(result);
-    
-    } catch (err) {
-      return err;
-    } 
-  
-  
-}
-
-
-
-function _convertToPdf(input, output, cb){
-  docxConverter(input,output,function(err,result){
-    if(err){
-      cb(err);
-    }
-    cb(null, result);
-  });
-
-}
-
-async function convertoPdf(input, output){
-
-  let func =  util.promisify(_convertToPdf);
-
-    let result;
-    try {
-      result = await func(input, output);      
-      return result;
-    } catch (err) {
-      return err;
-    } 
-  
-  
-}
-
-
-
-
-
-
-
-// Reports Generator
+// Reports Generators
 
 /**
  * Get a collection of loan granted clients
@@ -844,7 +536,6 @@ async function viewByBranch(ctx, reportType) {
   }
 }
 
-
 /**
  * Get a collection of loan granted clients
  */
@@ -998,8 +689,6 @@ async function viewCropsStats(ctx, reportType) {
   }
 }
 
-
-
 /**
  * View loan cycle stages stats
  * // /reports/stage/stats
@@ -1050,9 +739,6 @@ async function viewStagesStats(ctx, reportType) {
     throw ex;
   }
 }
-
-
-
 
 /**
  * Get a collection of loan granted clients

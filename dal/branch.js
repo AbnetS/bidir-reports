@@ -12,7 +12,8 @@ const co      = require('co');
 const Branch    = require('../models/branch');
 const mongoUpdate   = require('../lib/mongo-update');
 
-var returnFields = Branch.attributes;
+//var returnFields = Branch.attributes;
+var returnFields = {'_id': 1, 'name': 1};
 var population = [];
 
 /**

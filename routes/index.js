@@ -8,6 +8,8 @@ const debug  = require('debug')('api:app-router');
 
 const rootRouter        = require('./root');
 const reportRouter      = require('./report');
+const listRouter      = require('./list');
+
 
 
 var appRouter = new Router();
@@ -22,8 +24,9 @@ appRouter.OPEN_ENDPOINTS = OPEN_ENDPOINTS;
 
 // Add Root Router
 composeRoute('', rootRouter);
-//Add Screenings Router
+//Add Reports Router
 composeRoute('reports', reportRouter);
+composeRoute('reports/lists', listRouter);
 
 function composeRoute(endpoint, router){
   appRouter.use(`/${endpoint}`, router.routes(), router.allowedMethods());

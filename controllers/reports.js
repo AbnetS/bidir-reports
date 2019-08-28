@@ -40,6 +40,8 @@ const ACATDal            = require('../dal/ACAT');
 const ReportDal          = require('../dal/report');
 const ReportTypeDal      = require('../dal/reportType');
 
+const config             = require('../config/index');
+
 let hasPermission = checkPermissions.isPermitted('REPORT');
 
 let jsreportService = null;
@@ -306,6 +308,7 @@ exports.fetchDocx  = function* fetchDocx(next){
     });
 
     const REPORTS = {
+      CLIENTS_LIST: returnFilteredClientsList,
       CLIENTS_BY_GENDER: viewByGender,
       CLIENTS_BY_BRANCH: viewByBranch,
       CROP_STATS: viewCropsStats,
@@ -326,7 +329,7 @@ exports.fetchDocx  = function* fetchDocx(next){
 
     let result = yield REPORTS[type[0]](this, reportType);
     let data = [];
-    if (result.length) data = result
+    if (result.length) data = result;
     else if (result.data){
         data = result.data
     }
@@ -354,20 +357,175 @@ exports.fetchDocx  = function* fetchDocx(next){
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 // Reports Generators
+
+/**
+ * Get Clients List filtered by required parameters
+ * @param {} ctx 
+ * @param {*} reportType 
+ */
+async function returnFilteredClientsList(ctx){
+  //Get All lists filtered by the required parameters and get intersection of those.
+  let parameters = []; let query = {};
+  let clientListFilteredByGender = [];
+  let clientListFilteredByStatus = [];
+  let clientListFilteredByBranch = [];
+  let clientListFilteredByCrop = [];
+  let clientListFilteredByLoanStage = [];
+
+  let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  await hasPermission(ctx.state._user, 'VIEW');
+
+
+  try {
+    let user = ctx.state._user;
+
+    let account = await Account.findOne({ user: user._id }).exec();
+
+    // Super Admin
+    if (!account || (account.multi_branches && canViewAll)) {
+        //query = {};
+
+    // Can VIEW ALL
+    } else if (canViewAll) {
+      if(account.access_branches.length) {
+          query.branch = { $in: account.access_branches };
+
+      } else if(account.default_branch) {
+          query.branch = account.default_branch;
+
+      }
+
+    // Can VIEW
+    } else if(canView) {
+        query.created_by = user._id;
+
+    // DEFAULT
+    } else {
+      query.created_by = user._id;
+    }
+
+    let sets = [];
+
+    if (ctx.request.body.Gender){
+      parameters.push({"label":"Gender", "value":ctx.request.body.Gender});
+      clientListFilteredByGender = await  returnClientsListFilteredByGender(query, ctx.request.body.Gender);
+      sets.push(clientListFilteredByGender);
+    }
+    if (ctx.request.body.Status){
+      parameters.push({"label":"Status", "value":ctx.request.body.Status});
+      clientListFilteredByStatus = await returnClientsListFilteredByStatus(query, ctx.request.body.Status);
+      sets.push(clientListFilteredByStatus);
+    }
+    if (ctx.request.body.Branch){
+      parameters.push({"label":"Branch", "value":ctx.request.body.Branch});
+      clientListFilteredByBranch = await returnClientsListFilteredByBranch(query, ctx.request.body.Branch);
+      sets.push(clientListFilteredByBranch);
+    }
+    if(ctx.request.body.LoanStage){
+      parameters.push({"label":"Loan Process Stage", "value":ctx.request.body.LoanStage});
+      //clientListFilteredByLoanStage = await viewByStage(ctx);
+      clientListFilteredByLoanStage = await returnClientsListFilteredByStage (query, ctx.request.body.LoanStage );
+      sets.push(clientListFilteredByLoanStage);
+    }
+    if (ctx.request.body.Crop){
+      parameters.push({"label":"Crop", "value":ctx.request.body.Crop});
+      query.status = ctx.request.body.Status
+    }
+
+    
+
+
+    // let interList = clientListFilteredByGender.filter(client => 
+    //   (clientListFilteredByStatus.some(client2 => (client2._id.toString() == client._id.toString()))));
+    
+    // interList = interList.filter (client => 
+    //   (clientListFilteredByBranch.some(client2 => (client2._id.toString() == client._id.toString()))));
+    
+    let interList = sets.reduce(intersect);
+    
+    let result = {}; result.data={};
+    // set date modifications
+    let currentDate = moment().format('MMMM DD, YYYY');
+    result.data.date = currentDate;
+    
+    result.data.clients = []; result.data.parameters = [];
+    result.data.parameters = parameters; let i = 1;
+    for (let client of interList){
+      client._doc.No = i; client._doc.stage = "";
+      if (config.STATUS_CONSTANTS[client._doc.status]) {   
+        client._doc.stage = config.STATUS_CONSTANTS[client._doc.status].stage;
+        client._doc.status = config.STATUS_CONSTANTS[client._doc.status].status;     
+                
+      }
+      result.data.clients.push(client._doc);
+      i++;
+    }    
+
+    return result;
+
+
+  } catch (ex){
+    throw (ex);
+  }
+
+  async function returnClientsListFilteredByGender(query, gender){
+    query.gender = gender;    
+    let clients = await ClientDal.getCollection(query);
+    delete query.gender;
+    return clients;
+  }
+
+  async function returnClientsListFilteredByStatus(query, status){
+    
+    query.status = {'$regex' : status, '$options' : 'i'};  
+    let clients = await ClientDal.getCollection(query);
+    delete query.status;
+    return clients;
+  }
+
+  async function returnClientsListFilteredByBranch(query, branch){
+    query.branch = branch;  
+    let clients = await ClientDal.getCollection(query);
+    delete query.branch;
+    return clients;
+  }
+
+  async function returnClientsListFilteredByStage(query, stage){
+    //let patterns = stage.replace(" ","_");
+    let statusList = await getStatuses (stage);
+
+    query.status = {'$in' : statusList}
+    let clients = await ClientDal.getCollection(query);
+    delete query.status;
+    return clients;
+  }
+
+  async function getStatuses(stage){
+    let statusList = [];
+    switch (stage){
+      case "New": statusList.push("new"); return statusList; break;
+      case "Screening": statusList.push("screening_in_progress","eligible"); return statusList; break;
+      case "Loan Application": statusList.push ("loan_application_new", 
+                                  "loan_application_inprogress",
+                                  "loan_application_accepted"); return statusList; break;
+      case "A-CAT": statusList.push ("ACAT new", "ACAT_IN_PROGRESS", "ACAT_AUTHORIZED"); return statusList; break;
+      case "Loan Granted": statusList.push("Loan Granted"); return statusList; break;
+      case "Loan Paid": statusList.push ("Loan Paid"); return statusList; break;
+
+      
+    }
+    return statusList;
+  }
+
+  function intersect(clientSet1, clientSet2){
+    return clientSet1.filter(client1 => 
+      (clientSet2.some(client2 => (client2._id.toString() == client1._id.toString()))));
+
+  }
+
+}
+
 
 /**
  * Get a collection of loan granted clients
@@ -542,29 +700,44 @@ async function viewByBranch(ctx, reportType) {
 async function viewByGender(ctx, reportType) {
   debug('get a collection of clients by gender');
 
-  ctx.checkQuery("type")
+  ctx.checkBody("Gender")
       .notEmpty('Gender is Empty');
+  
+  let parameters = []; let query = {};
 
+  if (ctx.request.body.Gender){
+    parameters.push({"label":"Gender", "value":ctx.request.body.Gender});
+    query.gender = ctx.request.body.Gender;
+  }
+  if (ctx.request.body.Status){
+    parameters.push({"label":"Status", "value":ctx.request.body.Status});
+    query.status = ctx.request.body.Status
+  }
+  
+
+  
+  
   if(ctx.errors) {
     throw new Error(JSON.stringify(ctx.errors));
   }
 
   // retrieve pagination query params
-  let page   = ctx.query.page || 1;
-  let limit  = ctx.query.per_page || 10;
-  let query = {
-    gender: ctx.query.type
-  };
+  //let page   = ctx.query.page || 1;
+  //let limit  = ctx.query.per_page || 10;
+  // let query = {
+  //   gender: ctx.request.body.Gender,
+  //   status: ctx.request.body.status
+  // };
 
   let sortType = ctx.query.sort_by;
   let sort = {};
   sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
 
-  let opts = {
-    page: +page,
-    limit: +limit,
-    sort: sort
-  };
+  // let opts = {
+  //   page: +page,
+  //   limit: +limit,
+  //   sort: sort
+  // };
 
   let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
   let canView =  await hasPermission(ctx.state._user, 'VIEW');
@@ -598,14 +771,28 @@ async function viewByGender(ctx, reportType) {
       query.created_by = user._id;
     }
 
-    let clients = await ClientDal.getCollectionByPagination(query, opts);
+    let clients = await ClientDal.getCollection(query);
+    let result = {}; result.data={};
+    // set date modifications
+    let currentDate = moment().format('MMMM DD, YYYY');
+    result.data.date = currentDate;
+    
+    result.data.clients = []; result.data.parameters = [];
+    result.data.parameters = parameters; let i = 1;
+    for (let client of clients){
+      client._doc.No = i; 
+      if (config.STATUS_CONSTANTS[client._doc.status])    
+        client._doc.status = config.STATUS_CONSTANTS[client._doc.status];
+      result.data.clients.push(client._doc);
+      i++;
+    }
 
     await ReportDal.create({
       type: reportType._id,
       data: clients
     })
 
-    return clients;
+    return result;
 
   } catch(ex) {
     throw ex;
@@ -748,13 +935,13 @@ async function viewByStage(ctx, reportType) {
 
   const ACCEPTED_STAGES = ["screening","loan","acat"];
 
-  ctx.checkQuery("name")
-      .notEmpty('Loan cycle Stage name is Empty')
-      .isIn(ACCEPTED_STAGES, `Accepted stages are ${ACCEPTED_STAGES.join(",")}`);
+  // ctx.checkQuery("name")
+  //     .notEmpty('Loan cycle Stage name is Empty')
+  //     .isIn(ACCEPTED_STAGES, `Accepted stages are ${ACCEPTED_STAGES.join(",")}`);
 
-  if(ctx.errors) {
-    throw new Error(JSON.stringify(ctx.errors))
-  }
+  // if(ctx.errors) {
+  //   throw new Error(JSON.stringify(ctx.errors))
+  // }
 
   // retrieve pagination query params
   let page   = ctx.query.page || 1;
@@ -781,15 +968,15 @@ async function viewByStage(ctx, reportType) {
     let histories;
     query = { cycles: {} };
 
-    if (ctx.query.name === "screening") {
+    if (ctx.request.body.LoanStage === "screening") {
       query.cycles = { loan: null, acat: null };
       histories = await HistoryDal.getCollectionByPagination(query, opts);
 
-    } else if (ctx.query.name === "loan") {
+    } else if (ctx.request.body.LoanStage === "loan") {
       query.cycles = { acat: null };
       histories = await HistoryDal.getCollectionByPagination(query, opts);
 
-    } else if (ctx.query.name === "acat") {
+    } else if (ctx.request.body.LoanStage === "acat") {
       histories = await HistoryDal.getWhere(function(){
         let currentCycleACAT = false;
 
@@ -810,14 +997,17 @@ async function viewByStage(ctx, reportType) {
       clientIds.push(hist.client._id)
     }
 
-    let clients = await ClientDal.getCollectionByPagination({
-      _id: { $in: clientIds.slice() }
-    }, opts);
+    let clients = [];
+    if (clientIds.length > 0){
+      clients = await ClientDal.getCollection({
+        _id: { $in: clientIds.slice() }
+      }, opts);
+    }
 
-    await ReportDal.create({
-      type: reportType._id,
-      data: clients
-    });
+    // await ReportDal.create({
+    //   type: reportType._id,
+    //   data: clients
+    // });
 
     return clients;
 

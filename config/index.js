@@ -59,6 +59,18 @@ let config = {
   DOCX_WASM_API_KEY: {
     ND_DEV_ID: "39JK0J92MMNMTD2IHI6QA5H5M1",
     ND_DEV_SECRET: "41K5E3NC244HG9QNQPDI4QIO62"
+  },
+
+  STATUS_CONSTANTS : {
+    new: {status: "New", stage: "New"},
+    eligible: {status: "Eligible", stage: "Screening"},
+    loan_application_new: {status: "Loan Application New", stage: "Loan Application"},
+    loan_application_accepted: {status: "Loan Application Accepted", stage: "Loan Application"},
+    ACAT_IN_PROGRESS: {status: "A-CAT In Progress", stage: "A-CAT"},
+    //Loan-Granted: "Loan Granted",
+    loan_granted: {status: "Loan Granted", stage: "Loan Granted"},
+    loan_paid: {status: "Loan Paid", stage: "Loan Paid"}
+
   }
 };
 

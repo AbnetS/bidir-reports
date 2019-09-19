@@ -223,6 +223,7 @@ exports.fetchPdf  = function* fetchPdf(next){
     });
 
     const REPORTS = {
+      CLIENTS_LIST: returnFilteredClientsList,
       CLIENTS_BY_GENDER: viewByGender,
       CLIENTS_BY_BRANCH: viewByBranch,
       CROP_STATS: viewCropsStats,
@@ -259,20 +260,20 @@ exports.fetchPdf  = function* fetchPdf(next){
   let buf = Buffer.from(report);
   
   //***********convert to pdf using the LibreOffice converter library**************/  
-  // let libreConverter = new LIBRE_CONVERTER();
-  // fs.writeFileSync("./temp/report.docx", report);
-  // let pdf = yield libreConverter.convertToPdf("./temp/report.docx");
-  // //buf = Buffer.from(pdf);
-  // fs.unlinkSync("./temp/report.docx");
+  let libreConverter = new LIBRE_CONVERTER();
+  fs.writeFileSync("./temp/report.docx", report);
+  let pdf = yield libreConverter.convertToPdf("./temp/report.docx");
+  //buf = Buffer.from(pdf);
+  fs.unlinkSync("./temp/report.docx");
 
   //***********convert to pdf using the docx-wasm pdf converter which has higher quality but needs Internet connection**************/
-  let pdfConverter = new PDF_CONVERTER();
-  let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
-  buf = Buffer.from(pdf);
+  // let pdfConverter = new PDF_CONVERTER();
+  // let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
+  // buf = Buffer.from(pdf);
   
 
-  //this.body = pdf;
-  this.body = buf;
+  this.body = pdf;
+  //this.body = buf;
 
 } catch(ex) {
   return this.throw(new CustomError({

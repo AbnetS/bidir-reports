@@ -15,6 +15,7 @@ var ReportTypeSchema = new Schema({
     has_parameters: {type: Boolean},
     parameters:     [{
       name: {type: String},
+      code: {type: String},
       type: {type: String, enum : [ 'SELECT', 'TEXT', 'DATE','DATERANGE']},
       //options: {
         is_constant: {type: Boolean},

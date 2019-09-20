@@ -408,29 +408,29 @@ async function returnFilteredClientsList(ctx){
 
     let sets = [];
 
-    if (ctx.request.body.Gender){
-      parameters.push({"label":"Gender", "value":ctx.request.body.Gender});
-      clientListFilteredByGender = await  returnClientsListFilteredByGender(query, ctx.request.body.Gender);
+    if (ctx.request.body.gender){
+      parameters.push({"label":"Gender", "value":ctx.request.body.gender});
+      clientListFilteredByGender = await  returnClientsListFilteredByGender(query, ctx.request.body.gender);
       sets.push(clientListFilteredByGender);
     }
-    if (ctx.request.body.Status){
-      parameters.push({"label":"Status", "value":ctx.request.body.Status});
-      clientListFilteredByStatus = await returnClientsListFilteredByStatus(query, ctx.request.body.Status);
+    if (ctx.request.body.status){
+      parameters.push({"label":"Status", "value":ctx.request.body.status});
+      clientListFilteredByStatus = await returnClientsListFilteredByStatus(query, ctx.request.body.status);
       sets.push(clientListFilteredByStatus);
     }
-    if (ctx.request.body.Branch){
-      parameters.push({"label":"Branch", "value":ctx.request.body.Branch});
-      clientListFilteredByBranch = await returnClientsListFilteredByBranch(query, ctx.request.body.Branch);
+    if (ctx.request.body.branch){
+      parameters.push({"label":"Branch", "value":ctx.request.body.branch});
+      clientListFilteredByBranch = await returnClientsListFilteredByBranch(query, ctx.request.body.branch);
       sets.push(clientListFilteredByBranch);
     }
-    if(ctx.request.body.LoanStage){
-      parameters.push({"label":"Loan Process Stage", "value":ctx.request.body.LoanStage});
+    if(ctx.request.body.loanStage != null){
+      parameters.push({"label":"Loan Process Stage", "value":ctx.request.body.loanStage});
       //clientListFilteredByLoanStage = await viewByStage(ctx);
-      clientListFilteredByLoanStage = await returnClientsListFilteredByStage (query, ctx.request.body.LoanStage );
+      clientListFilteredByLoanStage = await returnClientsListFilteredByStage (query, ctx.request.body.loanStage );
       sets.push(clientListFilteredByLoanStage);
     }
-    if (ctx.request.body.Crop){
-      parameters.push({"label":"Crop", "value":ctx.request.body.Crop});
+    if (ctx.request.body.crop){
+      parameters.push({"label":"Crop", "value":ctx.request.body.crop});
       query.status = ctx.request.body.Status
     }
 

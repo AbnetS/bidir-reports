@@ -110,6 +110,71 @@ exports.fetchAllBranches = function* fetchAllBranches(next) {
   };
 
 
+  exports.fetchAllCrops = function* fetchAllCrops(next) {
+    debug('get a collection of branches by pagination');
+  
+    let isPermitted = yield hasPermission(this.state._user, 'VIEW');
+    if(!isPermitted) {
+      return this.throw(new CustomError({
+        type: 'VIEW_BRANCHES_COLLECTION_ERROR',
+        message: "You Don't have enough permissions to complete this action"
+      }));
+    }
+  
+    // retrieve pagination query params
+    let page   = this.query.page || 1;
+    let limit  = this.query.per_page || 10;
+    let query = {};
+  
+    let sortType = this.query.sort_by;
+    let sort = {};
+    sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
+  
+    let opts = {
+      page: +page,
+      limit: +limit,
+      sort: sort
+    };
+  
+    try {
+  
+      let user = this.state._user;
+      let account = yield Account.findOne({ user: user._id }).exec();
+  
+      if(account) {
+        if(!account.multi_branches) {
+          if(account.access_branches.length) {
+            query._id = { $in: account.access_branches };
+  
+          } else if(account.default_branch) {
+            query._id = account.default_branch;
+  
+          }
+        }
+      }
+  
+      let branches = yield BranchDal.getCollectionByPagination(query, opts);
+
+      let returnBranches = [];
+
+      for (let branch of branches.docs){
+          let returnBranch = {};
+          returnBranch.send = branch._id;
+          returnBranch.display = branch.name;
+          returnBranches.push (returnBranch);
+      }
+  
+      this.body = returnBranches;
+  
+    } catch(ex) {
+      return this.throw(new CustomError({
+        type: 'VIEW_BRANCHES_COLLECTION_ERROR',
+        message: ex.message
+      }));
+    }
+  };
+
+
 
 
 

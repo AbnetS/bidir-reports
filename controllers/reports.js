@@ -505,14 +505,14 @@ async function returnFilteredClientsList(ctx){
   async function getStatuses(stage){
     let statusList = [];
     switch (stage){
-      case "New": statusList.push("new"); return statusList; break;
-      case "Screening": statusList.push("screening_in_progress","eligible"); return statusList; break;
-      case "Loan Application": statusList.push ("loan_application_new", 
+      case "new": statusList.push("new"); return statusList; break;
+      case "screening": statusList.push("screening_in_progress","eligible"); return statusList; break;
+      case "loanApplication": statusList.push ("loan_application_new", 
                                   "loan_application_inprogress",
                                   "loan_application_accepted"); return statusList; break;
-      case "A-CAT": statusList.push ("ACAT new", "ACAT_IN_PROGRESS", "ACAT_AUTHORIZED"); return statusList; break;
-      case "Loan Granted": statusList.push("Loan Granted"); return statusList; break;
-      case "Loan Paid": statusList.push ("Loan Paid"); return statusList; break;
+      case "acat": statusList.push ("ACAT new", "ACAT_IN_PROGRESS", "ACAT_AUTHORIZED"); return statusList; break;
+      case "loanGranted": statusList.push("Loan Granted"); return statusList; break;
+      case "loanPaid": statusList.push ("Loan Paid"); return statusList; break;
 
       
     }

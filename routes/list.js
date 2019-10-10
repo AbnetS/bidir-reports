@@ -14,5 +14,7 @@ var router  = Router();
 
 router.get('/branches', acl(['*']), listsController.fetchAllBranches);
 
+router.get('/crops', acl(['*']), listsController.fetchAllCrops);
+
 // Expose Client Router
 module.exports = router;

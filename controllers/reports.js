@@ -224,12 +224,12 @@ exports.fetchPdf  = function* fetchPdf(next){
 
     const REPORTS = {
       CLIENTS_LIST: returnFilteredClientsList,
-      CLIENTS_BY_GENDER: viewByGender,
-      CLIENTS_BY_BRANCH: viewByBranch,
+      // CLIENTS_BY_GENDER: viewByGender,
+      // CLIENTS_BY_BRANCH: viewByBranch,
       CROP_STATS: viewCropsStats,
       LOAN_CYCLE_STAGES_STATS: viewStagesStats,
-      CLIENTS_BY_CROPS: viewByCrops,
-      LOAN_CYCLE_STAGES: viewByStage,
+      CLIENTS_BY_CROPS: viewByCrops, //will use the summary part
+      // LOAN_CYCLE_STAGES: viewByStage,
       CLIENT_LOAN_CYCLE_STATS: viewClientLoancycleStats,
       CLIENT_LOAN_CYCLE_STATS_SUMMARY: viewClientLoancycleStats
     };
@@ -286,7 +286,7 @@ exports.fetchPdf  = function* fetchPdf(next){
 }
 
 exports.fetchDocx  = function* fetchDocx(next){
-  debug(`fetch report type: ${this.params.id}`);
+  debug(`generate report : ${this.params.id}`);  
 
   let query = {
     _id: this.params.id
@@ -310,12 +310,12 @@ exports.fetchDocx  = function* fetchDocx(next){
 
     const REPORTS = {
       CLIENTS_LIST: returnFilteredClientsList,
-      CLIENTS_BY_GENDER: viewByGender,
-      CLIENTS_BY_BRANCH: viewByBranch,
+      // CLIENTS_BY_GENDER: viewByGender,
+      // CLIENTS_BY_BRANCH: viewByBranch,
       CROP_STATS: viewCropsStats,
       LOAN_CYCLE_STAGES_STATS: viewStagesStats,
-      CLIENTS_BY_CROPS: viewByCrops,
-      LOAN_CYCLE_STAGES: viewByStage,
+      CLIENTS_BY_CROPS: viewByCrops,//will use the summary part
+      // LOAN_CYCLE_STAGES: viewByStage,
       CLIENT_LOAN_CYCLE_STATS: viewClientLoancycleStats,
       CLIENT_LOAN_CYCLE_STATS_SUMMARY: viewClientLoancycleStats
     };
@@ -365,14 +365,9 @@ exports.fetchDocx  = function* fetchDocx(next){
  * @param {} ctx 
  * @param {*} reportType 
  */
-async function returnFilteredClientsList(ctx){
+async function returnFilteredClientsList(ctx, reportType){
   //Get All lists filtered by the required parameters and get intersection of those.
-  let parameters = []; let query = {};
-  let clientListFilteredByGender = [];
-  let clientListFilteredByStatus = [];
-  let clientListFilteredByBranch = [];
-  let clientListFilteredByCrop = [];
-  let clientListFilteredByLoanStage = [];
+  let query = {};  
 
   let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
   let canView =  await hasPermission(ctx.state._user, 'VIEW');
@@ -406,65 +401,60 @@ async function returnFilteredClientsList(ctx){
       query.created_by = user._id;
     }
 
-    let sets = [];
+    let parameters = []; let sets = []; let list = []; 
 
-    if (ctx.request.body.gender){
-      parameters.push({"label":"Gender", "value":ctx.request.body.gender});
-      clientListFilteredByGender = await  returnClientsListFilteredByGender(query, ctx.request.body.gender);
-      sets.push(clientListFilteredByGender);
-    }
-    if (ctx.request.body.status){
-      parameters.push({"label":"Status", "value":ctx.request.body.status});
-      clientListFilteredByStatus = await returnClientsListFilteredByStatus(query, ctx.request.body.status);
-      sets.push(clientListFilteredByStatus);
-    }
-    if (ctx.request.body.branch){
-      parameters.push({"label":"Branch", "value":ctx.request.body.branch});
-      clientListFilteredByBranch = await returnClientsListFilteredByBranch(query, ctx.request.body.branch);
-      sets.push(clientListFilteredByBranch);
-    }
-    if(ctx.request.body.loanStage != null){
-      parameters.push({"label":"Loan Process Stage", "value":ctx.request.body.loanStage});
-      //clientListFilteredByLoanStage = await viewByStage(ctx);
-      clientListFilteredByLoanStage = await returnClientsListFilteredByStage (query, ctx.request.body.loanStage );
-      sets.push(clientListFilteredByLoanStage);
-    }
-    if (ctx.request.body.crop){
-      parameters.push({"label":"Crop", "value":ctx.request.body.crop});
-      query.status = ctx.request.body.Status
+    const filterFunction = { 
+      gender: returnClientsListFilteredByGender,
+      status: returnClientsListFilteredByStatus,
+      branch: returnClientsListFilteredByBranch,
+      loanStage: returnClientsListFilteredByStage,
+      crop: returnClientsListFilteredByCrop
     }
 
-    
+    let body = ctx.request.body;
+    for (let key in body){
+      let param = reportType.parameters.find(item => item.code === key);
+      //Add validation if param is not found
 
-
-    // let interList = clientListFilteredByGender.filter(client => 
-    //   (clientListFilteredByStatus.some(client2 => (client2._id.toString() == client._id.toString()))));
-    
-    // interList = interList.filter (client => 
-    //   (clientListFilteredByBranch.some(client2 => (client2._id.toString() == client._id.toString()))));
-    
+      parameters.push({"label": param.name, "value":body[key].display});
+      list = await filterFunction[key](query, body[key].send);
+      sets.push (list);
+    }
+      
+    //Get intersection of the lists
     let interList = sets.reduce(intersect);
     
-    let result = {}; result.data={};
-    // set date modifications
+    let result = {}; result.data = {};
+
+    //Set date  for the report data
     let currentDate = moment().format('MMMM DD, YYYY');
     result.data.date = currentDate;
-    
+
+    //Set clients list and parameters list for the report data
     result.data.clients = []; result.data.parameters = [];
     result.data.parameters = parameters; let i = 1;
+
+    //Complete additional attributes of the clients list
     for (let client of interList){
       client._doc.No = i; client._doc.stage = "";
-      if (config.STATUS_CONSTANTS[client._doc.status]) {   
-        client._doc.stage = config.STATUS_CONSTANTS[client._doc.status].stage;
-        client._doc.status = config.STATUS_CONSTANTS[client._doc.status].status;     
-                
+      for (let key in config.STAGE_STATUS){
+        let status = config.STAGE_STATUS[key].statuses.find(item => item.code === client._doc.status);
+        if (status){
+          client._doc.stage = config.STAGE_STATUS[key].stage;
+          client._doc.status = status.name;
+          break;   
+        }        
       }
+      // if (config.STATUS_CONSTANTS[client._doc.status]) {   
+      //   client._doc.stage = config.STATUS_CONSTANTS[client._doc.status].stage;
+      //   client._doc.status = config.STATUS_CONSTANTS[client._doc.status].status;                  
+      // }      
+      client._doc.crops = await getTheLastLoanCycleCrop (client._doc);
       result.data.clients.push(client._doc);
       i++;
     }    
 
     return result;
-
 
   } catch (ex){
     throw (ex);
@@ -477,8 +467,7 @@ async function returnFilteredClientsList(ctx){
     return clients;
   }
 
-  async function returnClientsListFilteredByStatus(query, status){
-    
+  async function returnClientsListFilteredByStatus(query, status){    
     query.status = {'$regex' : status, '$options' : 'i'};  
     let clients = await ClientDal.getCollection(query);
     delete query.status;
@@ -494,14 +483,58 @@ async function returnFilteredClientsList(ctx){
 
   async function returnClientsListFilteredByStage(query, stage){
     //let patterns = stage.replace(" ","_");
-    let statusList = await getStatuses (stage);
-
+    //let statusList = await getStatuses (stage);
+    let statusList = [];
+    let statuses = config.STAGE_STATUS[stage].statuses;
+    for (let status of statuses){
+      statusList.push(status.code)
+    }
+    
     query.status = {'$in' : statusList}
     let clients = await ClientDal.getCollection(query);
     delete query.status;
     return clients;
   }
 
+  /* Filter clients list by their last loan cycle crop */
+  async function returnClientsListFilteredByCrop (query, crop){
+    let latestHistoryColl = await History.aggregate([
+      {$unwind: "$cycles"},      
+      {$match:{
+        $expr: {            
+            $eq: [{$toInt: "$cycles.cycle_number"}, {$toInt: "$cycle_number"}]
+          }
+        }
+      }
+  
+      ]).exec();
+    
+    let ids = [];
+    for (let history of latestHistoryColl){
+    if(history.cycles.acat){
+      let currentACAT = await ClientACAT.findOne({_id:history.cycles.acat}).exec();
+      if (currentACAT){        
+        for (let acat of currentACAT.ACATs){
+          let cropACAT = await ACAT.findOne({_id: acat}).populate("crop").exec();            
+          if (String(cropACAT.crop._id) === crop)
+            ids.push(cropACAT.client)            
+        }
+      }
+
+    }
+
+  }  
+
+  let clients = await ClientDal.getCollection({
+    _id: { $in: ids.slice() }
+  })
+
+  return clients;
+
+  }
+
+
+  //Helper Functions
   async function getStatuses(stage){
     let statusList = [];
     switch (stage){
@@ -517,6 +550,29 @@ async function returnFilteredClientsList(ctx){
       
     }
     return statusList;
+  }
+
+  async function getTheLastLoanCycleCrop(client){
+    let crops = "";
+    let history = await History.findOne({
+      client: client._id
+    }).exec();
+    if (history != null){
+      let cycle =  history.cycles.find(item => item.cycle_number == client.loan_cycle_number);
+      if (cycle && cycle.acat){
+        let currentACAT = await ClientACAT.findOne({_id:cycle.acat}).exec();
+        if (currentACAT){        
+          for (let acat of currentACAT.ACATs){
+            let cropACAT = await ACAT.findOne({_id: acat}).populate("crop").exec();            
+            if (crops === "")
+              crops += cropACAT.crop.name
+            else {crops = crops + ", " + cropACAT.crop.name;}
+          }
+        }
+      }
+    }
+
+    return crops;
   }
 
   function intersect(clientSet1, clientSet2){
@@ -931,7 +987,7 @@ async function viewStagesStats(ctx, reportType) {
 /**
  * Get a collection of loan granted clients
  */
-async function viewByStage(ctx, reportType) {
+async function viewByStage(query, loanStage) {
   debug('get a collection of clients by loan cycle stage');
 
   const ACCEPTED_STAGES = ["screening","loan","acat"];
@@ -945,39 +1001,39 @@ async function viewByStage(ctx, reportType) {
   // }
 
   // retrieve pagination query params
-  let page   = ctx.query.page || 1;
-  let limit  = ctx.query.per_page || 10;
-  let query = {};
+  // let page   = ctx.query.page || 1;
+  // let limit  = ctx.query.per_page || 10;
+  // let query = {};
 
-  let sortType = ctx.query.sort_by;
-  let sort = {};
-  sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
+  // let sortType = ctx.query.sort_by;
+  // let sort = {};
+  // sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
 
   let opts = {
-    page: +page,
-    limit: +limit,
-    sort: sort
+    // page: +page,
+    // limit: +limit,
+    // sort: sort
   };
 
 
   try {
-    let user = ctx.state._user;
+    // let user = ctx.state._user;
 
-    let account = await Account.findOne({ user: user._id }).exec();
+    // let account = await Account.findOne({ user: user._id }).exec();
 
     // Proxy via History Model
     let histories;
     query = { cycles: {} };
 
-    if (ctx.request.body.LoanStage === "screening") {
+    if (loanStage === "screening") {
       query.cycles = { loan: null, acat: null };
       histories = await HistoryDal.getCollectionByPagination(query, opts);
 
-    } else if (ctx.request.body.LoanStage === "loan") {
+    } else if (loanStage === "loan") {
       query.cycles = { acat: null };
       histories = await HistoryDal.getCollectionByPagination(query, opts);
 
-    } else if (ctx.request.body.LoanStage === "acat") {
+    } else if (loanStage === "acat") {
       histories = await HistoryDal.getWhere(function(){
         let currentCycleACAT = false;
 

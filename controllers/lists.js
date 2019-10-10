@@ -34,6 +34,7 @@ const Client             = require('../models/client');
 const LoanProposal       = require('../models/loanProposal');
 
 const BranchDal          = require('../dal/branch');
+const CropDal            = require('../dal/crop');
 const ClientDal          = require('../dal/client');
 const LogDal             = require('../dal/log');
 const HistoryDal         = require('../dal/history');
@@ -110,13 +111,13 @@ exports.fetchAllBranches = function* fetchAllBranches(next) {
   };
 
 
-  exports.fetchAllCrops = function* fetchAllCrops(next) {
-    debug('get a collection of branches by pagination');
+exports.fetchAllCrops = function* fetchAllCrops(next) {
+    debug('get a collection of CROPS by pagination');
   
     let isPermitted = yield hasPermission(this.state._user, 'VIEW');
     if(!isPermitted) {
       return this.throw(new CustomError({
-        type: 'VIEW_BRANCHES_COLLECTION_ERROR',
+        type: 'VIEW_CROPS_COLLECTION_ERROR',
         message: "You Don't have enough permissions to complete this action"
       }));
     }
@@ -153,22 +154,22 @@ exports.fetchAllBranches = function* fetchAllBranches(next) {
         }
       }
   
-      let branches = yield BranchDal.getCollectionByPagination(query, opts);
+      let crops = yield CropDal.getCollectionByPagination(query, opts);
 
-      let returnBranches = [];
+      let returnCrops = [];
 
-      for (let branch of branches.docs){
-          let returnBranch = {};
-          returnBranch.send = branch._id;
-          returnBranch.display = branch.name;
-          returnBranches.push (returnBranch);
+      for (let crop of crops.docs){
+          let returnCrop = {};
+          returnCrop.send = crop._id;
+          returnCrop.display = crop.name;
+          returnCrops.push (returnCrop);
       }
   
-      this.body = returnBranches;
+      this.body = returnCrops;
   
     } catch(ex) {
       return this.throw(new CustomError({
-        type: 'VIEW_BRANCHES_COLLECTION_ERROR',
+        type: 'VIEW_CROPS_COLLECTION_ERROR',
         message: ex.message
       }));
     }

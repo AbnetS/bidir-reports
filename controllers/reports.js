@@ -32,6 +32,7 @@ const ACAT               = require('../models/ACAT');
 const ClientACAT         = require('../models/clientACAT');
 const Client             = require('../models/client');
 const LoanProposal       = require('../models/loanProposal');
+const Screening          = require('../models/screening');
 
 const ClientDal          = require('../dal/client');
 const LogDal             = require('../dal/log');
@@ -408,17 +409,32 @@ async function returnFilteredClientsList(ctx, reportType){
       status: returnClientsListFilteredByStatus,
       branch: returnClientsListFilteredByBranch,
       loanStage: returnClientsListFilteredByStage,
-      crop: returnClientsListFilteredByCrop
+      crop: returnClientsListFilteredByCrop,
+      fromDate: returnClientsListFilteredByDateRange,
+      toDate: returnClientsListFilteredByDateRange
     }
 
     let body = ctx.request.body;
+    if (!((body.fromDate && body.toDate) || (!body.fromDate && !body.toDate))) //they have to exist in pair
+      throw new Error("Incomplete date range is detected in the request");
+    
+
+    let range = false;
     for (let key in body){
       let param = reportType.parameters.find(item => item.code === key);
       //Add validation if param is not found
-
-      parameters.push({"label": param.name, "value":body[key].display});
-      list = await filterFunction[key](query, body[key].send);
-      sets.push (list);
+      if (!range && (param.code === "fromDate" || param.code === "toDate")){
+        parameters.push({"label": "Date Range", "value":body.fromDate.display + " - " + body.toDate.display});
+        list = await filterFunction[key](query, body.fromDate.send, body.toDate.send);
+        sets.push (list);
+        range = true;
+      }
+      else if (range) continue; 
+      else {
+        parameters.push({"label": param.name, "value":body[key].display});
+        list = await filterFunction[key](query, body[key].send);
+        sets.push (list);
+      }
     }
       
     //Get intersection of the lists
@@ -444,12 +460,10 @@ async function returnFilteredClientsList(ctx, reportType){
           client._doc.status = status.name;
           break;   
         }        
-      }
-      // if (config.STATUS_CONSTANTS[client._doc.status]) {   
-      //   client._doc.stage = config.STATUS_CONSTANTS[client._doc.status].stage;
-      //   client._doc.status = config.STATUS_CONSTANTS[client._doc.status].status;                  
-      // }      
-      client._doc.crops = await getTheLastLoanCycleCrop (client._doc);
+      }   
+      let dateAndCropOfLastLoanCycle =  await getTheLastLoanCycleDateAndCrop(client._doc);
+      client._doc.loanCycleStartedAt =  moment(dateAndCropOfLastLoanCycle.loanProcessStartedAt).format("MMM DD, YYYY");    
+      client._doc.crops = dateAndCropOfLastLoanCycle.crops;
       result.data.clients.push(client._doc);
       i++;
     }    
@@ -459,6 +473,7 @@ async function returnFilteredClientsList(ctx, reportType){
   } catch (ex){
     throw (ex);
   }
+
 
   async function returnClientsListFilteredByGender(query, gender){
     query.gender = gender;    
@@ -522,6 +537,40 @@ async function returnFilteredClientsList(ctx, reportType){
       }
 
     }
+  }
+  let clients = await ClientDal.getCollection({
+    _id: { $in: ids.slice() }
+  })
+
+  return clients;
+}
+
+  /* Filter clients list by date range - date of screening of last loan cycle is considered as
+     the date the latest loan processing is started. Registration date is not considered here as
+     the loan process determines the activeness of the client */
+  async function returnClientsListFilteredByDateRange (query, fromDate, toDate){
+    let latestHistoryColl = await History.aggregate([
+      {$unwind: "$cycles"},      
+      {$match:{
+        $expr: {            
+            $eq: [{$toInt: "$cycles.cycle_number"}, {$toInt: "$cycle_number"}]
+          }
+        }
+      }
+  
+      ]).exec();
+    
+    let ids = [];
+    for (let history of latestHistoryColl){
+      if(history.cycles.screening){
+        let screening = await Screening.findOne({_id:history.cycles.screening}).exec();
+        if (screening){        
+          if (new Date(fromDate) <= new Date(screening.date_created) 
+              && new Date(screening.date_created) <= new Date(toDate))
+            ids.push(screening.client)
+        }
+
+      }
 
   }  
 
@@ -552,27 +601,34 @@ async function returnFilteredClientsList(ctx, reportType){
     return statusList;
   }
 
-  async function getTheLastLoanCycleCrop(client){
-    let crops = "";
+  async function getTheLastLoanCycleDateAndCrop(client){
+    let response = {}
     let history = await History.findOne({
       client: client._id
     }).exec();
     if (history != null){
       let cycle =  history.cycles.find(item => item.cycle_number == client.loan_cycle_number);
-      if (cycle && cycle.acat){
-        let currentACAT = await ClientACAT.findOne({_id:cycle.acat}).exec();
-        if (currentACAT){        
-          for (let acat of currentACAT.ACATs){
-            let cropACAT = await ACAT.findOne({_id: acat}).populate("crop").exec();            
-            if (crops === "")
-              crops += cropACAT.crop.name
-            else {crops = crops + ", " + cropACAT.crop.name;}
+      if (cycle){
+        if (cycle.screening){
+          let screening = await Screening.findOne({_id: cycle.screening}).exec();
+          response.loanProcessStartedAt = screening.date_created;
+        } 
+        if (cycle.acat){
+          response.crops = "";
+          let currentACAT = await ClientACAT.findOne({_id:cycle.acat}).exec();
+          if (currentACAT){        
+            for (let acat of currentACAT.ACATs){
+              let cropACAT = await ACAT.findOne({_id: acat}).populate("crop").exec();            
+              if (response.crops === "")
+                response.crops += cropACAT.crop.name
+              else {response.crops = response.crops + ", " + cropACAT.crop.name;}
+            }
           }
         }
       }
     }
 
-    return crops;
+    return response;
   }
 
   function intersect(clientSet1, clientSet2){

@@ -516,7 +516,7 @@ async function returnFilteredClientsList(ctx, reportType){
     let latestHistoryColl = await History.aggregate([
       {$unwind: "$cycles"},      
       {$match:{
-        $expr: {            
+        $addFields: {            
             $eq: [{$toInt: "$cycles.cycle_number"}, {$toInt: "$cycle_number"}]
           }
         }
@@ -552,7 +552,7 @@ async function returnFilteredClientsList(ctx, reportType){
     let latestHistoryColl = await History.aggregate([
       {$unwind: "$cycles"},      
       {$match:{
-        $expr: {            
+        $addFields: {            
             $eq: [{$toInt: "$cycles.cycle_number"}, {$toInt: "$cycle_number"}]
           }
         }

@@ -224,7 +224,7 @@ exports.fetchPdf  = function* fetchPdf(next){
     });
 
     const REPORTS = {
-      CLIENTS_LIST: returnFilteredClientsList,
+      ACTIVE_CLIENTS_LIST: returnFilteredClientsList,
       // CLIENTS_BY_GENDER: viewByGender,
       // CLIENTS_BY_BRANCH: viewByBranch,
       CROP_STATS: viewCropsStats,
@@ -256,25 +256,25 @@ exports.fetchPdf  = function* fetchPdf(next){
 
   let template = "./templates/" + type + ".docx" 
   let docGenerator = new DOC_GENERATOR(); 
-  let report = yield docGenerator.generateDoc(data, template);
+  let report = yield docGenerator.generatePdf(data, template);
   
   let buf = Buffer.from(report);
   
   //***********convert to pdf using the LibreOffice converter library**************/  
-  let libreConverter = new LIBRE_CONVERTER();
-  fs.writeFileSync("./temp/report.docx", report);
-  let pdf = yield libreConverter.convertToPdf("./temp/report.docx");
-  //buf = Buffer.from(pdf);
-  fs.unlinkSync("./temp/report.docx");
+  // let libreConverter = new LIBRE_CONVERTER();
+  // fs.writeFileSync("./temp/report.docx", report);
+  // let pdf = yield libreConverter.convertToPdf("./temp/report.docx");
+  // //buf = Buffer.from(pdf);
+  // fs.unlinkSync("./temp/report.docx");
 
   //***********convert to pdf using the docx-wasm pdf converter which has higher quality but needs Internet connection**************/
   // let pdfConverter = new PDF_CONVERTER();
   // let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
-  // buf = Buffer.from(pdf);
+  // let buf = Buffer.from(pdf);
   
 
-  this.body = pdf;
-  //this.body = buf;
+  //this.body = pdf;
+  this.body = buf;
 
 } catch(ex) {
   return this.throw(new CustomError({
@@ -310,7 +310,7 @@ exports.fetchDocx  = function* fetchDocx(next){
     });
 
     const REPORTS = {
-      CLIENTS_LIST: returnFilteredClientsList,
+      ACTIVE_CLIENTS_LIST: returnFilteredClientsList,
       // CLIENTS_BY_GENDER: viewByGender,
       // CLIENTS_BY_BRANCH: viewByBranch,
       CROP_STATS: viewCropsStats,
@@ -410,6 +410,7 @@ async function returnFilteredClientsList(ctx, reportType){
       branch: returnClientsListFilteredByBranch,
       loanStage: returnClientsListFilteredByStage,
       crop: returnClientsListFilteredByCrop,
+      loanCycle: returnClientsListFilteredByCurrentLoanCycle,
       fromDate: returnClientsListFilteredByDateRange,
       toDate: returnClientsListFilteredByDateRange
     }
@@ -429,7 +430,7 @@ async function returnFilteredClientsList(ctx, reportType){
         sets.push (list);
         range = true;
       }
-      else if (range) continue; 
+      else if (range && (param.code === "fromDate" || param.code === "toDate")) continue; 
       else {
         parameters.push({"label": param.name, "value":body[key].display});
         list = await filterFunction[key](query, body[key].send);
@@ -438,7 +439,7 @@ async function returnFilteredClientsList(ctx, reportType){
     }
       
     //Get intersection of the lists
-    let interList = sets.reduce(intersect);
+    let interList = sets.reduce(intersect);    
     
     let result = {}; result.data = {};
 
@@ -448,11 +449,11 @@ async function returnFilteredClientsList(ctx, reportType){
 
     //Set clients list and parameters list for the report data
     result.data.clients = []; result.data.parameters = [];
-    result.data.parameters = parameters; let i = 1;
+    result.data.parameters = parameters; /*let i = 1;*/
 
     //Complete additional attributes of the clients list
     for (let client of interList){
-      client._doc.No = i; client._doc.stage = "";
+      /*client._doc.No = i;*/ client._doc.stage = "";
       for (let key in config.STAGE_STATUS){
         let status = config.STAGE_STATUS[key].statuses.find(item => item.code === client._doc.status);
         if (status){
@@ -465,9 +466,21 @@ async function returnFilteredClientsList(ctx, reportType){
       client._doc.loanCycleStartedAt =  moment(dateAndCropOfLastLoanCycle.loanProcessStartedAt).format("MMM DD, YYYY");    
       client._doc.crops = dateAndCropOfLastLoanCycle.crops;
       result.data.clients.push(client._doc);
-      i++;
-    }    
+      //i++;
+    }  
+    
+    //Sort clients by the loan cycle date in descending order
+    result.data.clients = result.data.clients.sort (
+                                  (client1,client2) => 
+                                    {if (new Date(client1.loanCycleStartedAt) > new Date(client2.loanCycleStartedAt)) return 1;
+                                     if (new Date(client1.loanCycleStartedAt) < new Date(client2.loanCycleStartedAt)) return -1})
 
+    
+    let i = 1;
+    for (let client of result.data.clients){
+      client.No = i;
+      i++;
+    }
     return result;
 
   } catch (ex){
@@ -493,6 +506,13 @@ async function returnFilteredClientsList(ctx, reportType){
     query.branch = branch;  
     let clients = await ClientDal.getCollection(query);
     delete query.branch;
+    return clients;
+  }
+
+  async function returnClientsListFilteredByCurrentLoanCycle(query, cycleNo){
+    query.loan_cycle_number = cycleNo;  
+    let clients = await ClientDal.getCollection(query);
+    delete query.loan_cycle_number;
     return clients;
   }
 
@@ -556,7 +576,7 @@ async function returnFilteredClientsList(ctx, reportType){
             $eq: [{$toInt: "$cycles.cycle_number"}, {$toInt: "$cycle_number"}]
           }
         }
-      }
+      }      
   
       ]).exec();
     

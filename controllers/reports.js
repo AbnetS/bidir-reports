@@ -510,7 +510,7 @@ async function returnFilteredClientsList(ctx, reportType){
   }
 
   async function returnClientsListFilteredByCurrentLoanCycle(query, cycleNo){
-    query.loan_cycle_number = cycleNo;  
+    query.loan_cycle_number = Number(cycleNo);  
     let clients = await ClientDal.getCollection(query);
     delete query.loan_cycle_number;
     return clients;

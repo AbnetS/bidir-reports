@@ -12,9 +12,10 @@ var Schema = mongoose.Schema;
 var ReportTypeSchema = new Schema({       
     title:          { type: String },
     type:           { type: String, unique: true },
+    description:    { type: String },
     has_parameters: { type: Boolean},
     parameters:     [{
-      name: {type: String},
+      name: {type: String},      
       code: {type: String},
       type: {type: String, enum : [ 'SELECT', 'TEXT', 'DATE','DATERANGE']},
       //options: {

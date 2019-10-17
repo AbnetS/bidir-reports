@@ -258,7 +258,7 @@ exports.fetchPdf  = function* fetchPdf(next){
   let docGenerator = new DOC_GENERATOR(); 
   let report = yield docGenerator.generatePdf(data, template);
   
-  let buf = Buffer.from(report);
+  //let buf = Buffer.from(report);
   
   //***********convert to pdf using the LibreOffice converter library**************/  
   // let libreConverter = new LIBRE_CONVERTER();
@@ -274,7 +274,7 @@ exports.fetchPdf  = function* fetchPdf(next){
   
 
   //this.body = pdf;
-  this.body = buf;
+  this.body = report;
 
 } catch(ex) {
   return this.throw(new CustomError({
@@ -537,7 +537,7 @@ async function returnFilteredClientsList(ctx, reportType){
       {$unwind: "$cycles"},      
       {$match:{
         $expr: {            
-            $eq: [{$toInt: "$cycles.cycle_number"}, {$toInt: "$cycle_number"}]
+            $eq: [{$toInt: "$cycles.cycle_number"}, {$toInt: "$cycle_number"}]            
           }
         }
       }

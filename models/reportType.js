@@ -17,7 +17,8 @@ var ReportTypeSchema = new Schema({
     parameters:     [{
       name: {type: String},      
       code: {type: String},
-      type: {type: String, enum : [ 'SELECT', 'TEXT', 'DATE','DATERANGE']},
+      required: {type: Boolean, default: false},
+      type: {type: String, enum : [ 'SELECT', 'TEXT', 'DATE','DATERANGE','SEARCH']},
       //options: {
         is_constant: {type: Boolean},
         constants: [{
@@ -61,6 +62,7 @@ ReportTypeSchema.pre('save', function preSaveMiddleware(next) {
 ReportTypeSchema.statics.attributes = {
   title: 1,
   type: 1,
+  description: 1,
   has_parameters: 1,
   parameters: 1,
   chart_types: 1,

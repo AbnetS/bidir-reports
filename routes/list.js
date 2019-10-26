@@ -16,5 +16,7 @@ router.get('/branches', acl(['*']), listsController.fetchAllBranches);
 
 router.get('/crops', acl(['*']), listsController.fetchAllCrops);
 
+router.get('/clients/search', acl(['*']), listsController.searchClients);
+
 // Expose Client Router
 module.exports = router;

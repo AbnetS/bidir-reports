@@ -176,7 +176,7 @@ exports.fetchOne = function* fetchOneReportType(next) {
       LOAN_CYCLE_STAGES_STATS: viewStagesStats,
       CLIENTS_BY_CROPS: viewByCrops,
       LOAN_CYCLE_STAGES: viewByStage,
-      CLIENT_LOAN_CYCLE_STATS: viewClientLoancycleStats
+      CLIENT_LOAN_CYCLE_STATS: returnClientLoanHistory      
     };
 
     let type = Object.keys(REPORTS).filter(function(item){
@@ -231,8 +231,8 @@ exports.fetchPdf  = function* fetchPdf(next){
       LOAN_CYCLE_STAGES_STATS: viewStagesStats,
       CLIENTS_BY_CROPS: viewByCrops, //will use the summary part
       // LOAN_CYCLE_STAGES: viewByStage,
-      CLIENT_LOAN_CYCLE_STATS: viewClientLoancycleStats,
-      CLIENT_LOAN_CYCLE_STATS_SUMMARY: viewClientLoancycleStats
+      CLIENT_DETAILED_LOAN_HISTORY: returnClientLoanHistory,
+      CLIENT_SUMMARIZED_LOAN_HISTORY: returnClientLoanHistory
     };
 
     let type = Object.keys(REPORTS).filter(function(item){
@@ -317,8 +317,8 @@ exports.fetchDocx  = function* fetchDocx(next){
       LOAN_CYCLE_STAGES_STATS: viewStagesStats,
       CLIENTS_BY_CROPS: viewByCrops,//will use the summary part
       // LOAN_CYCLE_STAGES: viewByStage,
-      CLIENT_LOAN_CYCLE_STATS: viewClientLoancycleStats,
-      CLIENT_LOAN_CYCLE_STATS_SUMMARY: viewClientLoancycleStats
+      CLIENT_DETAILED_LOAN_HISTORY: returnClientLoanHistory,
+      CLIENT_SUMMARIZED_LOAN_HISTORY: returnClientLoanHistory
     };
 
     let type = Object.keys(REPORTS).filter(function(item){
@@ -330,18 +330,19 @@ exports.fetchDocx  = function* fetchDocx(next){
     }
 
     let result = yield REPORTS[type[0]](this, reportType);
-    let data = [];
-    if (result.length) data = result;
-    else if (result.data){
-        data = result.data
-    }
-    else{
-      data.push(result)
-    }   
+    //let data = result;
+    // let data = [];
+    // if (result.length) data = result;
+    // else if (result.data){
+    //     data = result.data
+    // }
+    // else{
+    //   data.push(result)
+    // }   
 
   let template = "./templates/" + type + ".docx";
   let docGenerator = new DOC_GENERATOR(); 
-  let report = yield docGenerator.generateDoc(data, template);
+  let report = yield docGenerator.generateDoc(result, template);
 
   
   let buf = Buffer.from(report); 
@@ -402,6 +403,9 @@ async function returnFilteredClientsList(ctx, reportType){
       query.created_by = user._id;
     }
 
+    //filter individual clients
+    //query.for_group = Boolean(0); 
+
     let parameters = []; let sets = []; let list = []; 
 
     const filterFunction = { 
@@ -419,22 +423,27 @@ async function returnFilteredClientsList(ctx, reportType){
     if (!((body.fromDate && body.toDate) || (!body.fromDate && !body.toDate))) //they have to exist in pair
       throw new Error("Incomplete date range is detected in the request");
     
-
-    let range = false;
-    for (let key in body){
-      let param = reportType.parameters.find(item => item.code === key);
-      //Add validation if param is not found
-      if (!range && (param.code === "fromDate" || param.code === "toDate")){
-        parameters.push({"label": "Date Range", "value":body.fromDate.display + " - " + body.toDate.display});
-        list = await filterFunction[key](query, body.fromDate.send, body.toDate.send);
-        sets.push (list);
-        range = true;
-      }
-      else if (range && (param.code === "fromDate" || param.code === "toDate")) continue; 
-      else {
-        parameters.push({"label": param.name, "value":body[key].display});
-        list = await filterFunction[key](query, body[key].send);
-        sets.push (list);
+    if (Object.keys(body).length === 0){
+      list = await returnAllClientsList (query);
+      sets.push(list);
+    }
+    else {
+      let range = false;
+      for (let key in body){
+        let param = reportType.parameters.find(item => item.code === key);
+        //Add validation if param is not found
+        if (!range && (param.code === "fromDate" || param.code === "toDate")){
+          parameters.push({"label": "Date Range", "value":body.fromDate.display + " - " + body.toDate.display});
+          list = await filterFunction[key](query, body.fromDate.send, body.toDate.send);
+          sets.push (list);
+          range = true;
+        }
+        else if (range && (param.code === "fromDate" || param.code === "toDate")) continue; 
+        else {
+          parameters.push({"label": param.name, "value":body[key].display});
+          list = await filterFunction[key](query, body[key].send);
+          sets.push (list);
+        }
       }
     }
       
@@ -445,7 +454,7 @@ async function returnFilteredClientsList(ctx, reportType){
 
     //Set date  for the report data
     let currentDate = moment().format('MMMM DD, YYYY');
-    result.data.date = currentDate;
+    result.date = currentDate;
 
     //Set clients list and parameters list for the report data
     result.data.clients = []; result.data.parameters = [];
@@ -488,6 +497,10 @@ async function returnFilteredClientsList(ctx, reportType){
   }
 
 
+  async function returnAllClientsList(query){
+    let clients = await ClientDal.getCollection(query);
+    return clients;
+  }
   async function returnClientsListFilteredByGender(query, gender){
     query.gender = gender;    
     let clients = await ClientDal.getCollection(query);
@@ -661,75 +674,96 @@ async function returnFilteredClientsList(ctx, reportType){
 
 
 /**
- * Get a collection of loan granted clients
+ * Get client loan history
  */
-function* viewClientLoancycleStats(ctx, reportType) {
-  debug('get client loan cycle stats');
+function* returnClientLoanHistory(ctx, reportType) {
+  debug('get client loan history');
 
   try {
-    let stats;
+    let stats = [];
 
-    //ctx.query.client = "5bbdfe638a878c00014d4ca8";
-    if (ctx.query.client) {
+    let parameters = [];  let loanHistory = []; let lastLoanCycles = 0;
+
+    let body = ctx.request.body;
+
+    if (body.lastLoanCycles) {
+      lastLoanCycles = body.lastLoanCycles.send;
+      let param = reportType.parameters.find(item => item.code === "lastLoanCycles");
+      if (param){
+        parameters.push({"label": param.name, "value":body["lastLoanCycles"].display});
+      }
+    }
+
+    if (!body.client) {      
+      parameters.push({"label": "Clients", "value":"All Clients"});
+      loanHistory = yield returnAllClientsLoanHistory (lastLoanCycles);
+    } else {
+      let param = reportType.parameters.find(item => item.code === "client");
+      if (param){
+        parameters.push({"label": param.name, "value":body["client"].display});
+      }
+      loanHistory = yield returnASingleClientLoanHistory (lastLoanCycles);
+    } 
+
+    
+    async function returnASingleClientLoanHistory(lastLoanCycles){
       let query = {
-        _id: ctx.query.client
+        _id: body.client.send
       };
-      let client = yield ClientDal.get(query);
+      let client = await ClientDal.get(query);
       if (!client) {
         let err = new Error("Client Does Not Exist!");
-        err.type = 'CLIENT_LOAN_CYCLE_STATS';
+        err.type = 'CLIENT_DETAILED_LOAN_HISTORY';
         throw err;
       }
 
-      let history = yield HistoryDal.get({
+      let history = await HistoryDal.get({
         client: client._id
       });
 
-      stats = yield getStats(client, history);
+      let stat = await getStats(client, history, lastLoanCycles);
+      stats.push(stat);
+      return stats;
+    }
 
-    } else {
-      // retrieve pagination query params
-      let page   = ctx.query.page || 1;
-      let limit  = ctx.query.per_page || 200;
-
-      let sortType = ctx.query.sort_by;
-      let sort = {};
-      sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
-
-      let opts = {
-        page: +page,
-        limit: +limit,
-        sort: sort
-      };
+    async function returnAllClientsLoanHistory(lastLoanCycles){
       let query = {};
 
-      let clients = yield ClientDal.getCollectionByPagination(query, opts);
+      let clients = await ClientDal.getCollection(query);
 
-      stats = {
-        total_pages: clients.total_pages,
-        total_docs_count: clients.total_docs_count,
-        current_page: clients.current_page,
-        data: []
-      }
-
-      for(let client of clients.docs) {
-        let history = yield HistoryDal.get({
+      for(let client of clients) {
+        let history = await HistoryDal.get({
           client: client._id
         });
         if (!history) {continue;}
-        let stat =  yield getStats(client, history)
-        stats.data.push(stat);
+        let stat =  await getStats(client, history, lastLoanCycles)
+        stats.push(stat);
       }
+
+      return stats;
+    
     }
+      
      
-    async function getStats(client, history) {
+    async function getStats(client, history, lastLoanCycles) {
       let data = {
         client: `${client.first_name} ${client.last_name} ${client.grandfather_name}`,
-        date: moment().format('MMMM DD, YYYY'),
+        total_loan_cycles: client.loan_cycle_number,
+        //date: moment().format('MMMM DD, YYYY'),s
         loan_cycles: []
+      }
+      
+      let checkCycles = false; let afterLoanCycle = 0;
+      if (lastLoanCycles != 0) { //The user states to consider only a specific no of last loan cycles
+        if (client.loan_cycle_number > lastLoanCycles){
+          checkCycles = true;
+          afterLoanCycle = client.loan_cycle_number - lastLoanCycles;}
       }
       //for each history cycle
       for(let cycle of history.cycles) {
+        if (checkCycles){
+          if (cycle.cycle_number <= afterLoanCycle) continue;
+        }
         if (!cycle.acat) { continue; }
         let clientACAT = await ClientACAT.findOne({ _id: cycle.acat }).exec();
         let loanProposal = await LoanProposal.findOne({ client_acat: clientACAT._id }).exec();
@@ -752,22 +786,30 @@ function* viewClientLoancycleStats(ctx, reportType) {
 
         data.loan_cycles.push(stat);
       }
+      data.loan_cycles = data.loan_cycles.sort((cycle1, cycle2) => {return (cycle1.loan_cycle_no > cycle2.loan_cycle_no)});
 
       return data;
-    }
+    }  
+    
+    let result = {}; result.data = {};
+    
+    //Set date  for the report data
+    let currentDate = moment().format('MMMM DD, YYYY');
+    result.date = currentDate;
 
-    yield ReportDal.create({
-      type: reportType._id,
-      data: stats
-    })
+    //Set loan history and parameters list for the report data
+    result.data.parameters = parameters; /*let i = 1;*/
+    result.data.loanHistory = loanHistory;
 
-    return stats;
+    return result;
 
   } catch(ex) {
-    ex.type = 'CLIENT_LOAN_CYCLE_STATS';
+    ex.type = 'CLIENT_DETAILED_LOAN_HISTORY';
     throw ex;
   }
 }
+
+
 
 /**
  * Get a collection of loan granted clients

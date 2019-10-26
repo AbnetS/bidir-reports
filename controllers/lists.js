@@ -175,6 +175,101 @@ exports.fetchAllCrops = function* fetchAllCrops(next) {
     }
   };
 
+exports.searchClients = function* searchClients(next) {
+    debug('search a collection of CLIENTS by pagination');
+  
+    let isPermitted = yield hasPermission(this.state._user, 'VIEW');
+    if(!isPermitted) {
+      return this.throw(new CustomError({
+        type: 'VIEW_CLIENTS_COLLECTION_ERROR',
+        message: "You Don't have enough permissions to complete this action"
+      }));
+    }
+  
+    // retrieve pagination query params
+    let page   = this.query.page || 1;
+    let limit  = this.query.per_page || 10;
+    let query = {};
+  
+    let sortType = this.query.sort_by;
+    let sort = {};
+    sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
+  
+    let opts = {
+      page: +page,
+      limit: +limit,
+      sort: sort
+    };
+  
+    try {
+  
+      let user = this.state._user;
+      let account = yield Account.findOne({ user: user._id }).exec();
+  
+      if(account) {
+        if(!account.multi_branches) {
+          if(account.access_branches.length) {
+            query._id = { $in: account.access_branches };
+  
+          } else if(account.default_branch) {
+            query._id = account.default_branch;
+  
+          }
+        }
+      }
+
+      let searchTerm = this.query.search;
+
+      query.$or = [];
+      let terms = searchTerm.split(/\s+/);
+      let groupTerms = { $in: [] };
+
+      for(let term of terms) {       
+
+        term = new RegExp(`${term}`, 'i')
+
+        groupTerms.$in.push(term);
+      }
+
+      query.$or.push({
+          gender: groupTerms
+        },{
+          first_name: groupTerms
+        },{
+          last_name: groupTerms
+        },{
+          grandfather_name: groupTerms
+        },{
+          national_id_no: groupTerms
+        },{
+          phone: groupTerms
+        },{
+          email: groupTerms
+        });
+
+    
+  
+      let clients = yield ClientDal.getCollectionByPagination(query, opts);
+
+      let returnClients = [];
+
+      for (let client of clients.docs){
+          let returnClient = {};
+          returnClient.send = client._id;
+          returnClient.display = client.first_name + " " + client.last_name + " " + client.grandfather_name;
+          returnClients.push (returnClient);
+      }
+  
+      this.body = returnClients;
+  
+    } catch(ex) {
+      return this.throw(new CustomError({
+        type: 'VIEW_CLIENTS_COLLECTION_ERROR',
+        message: ex.message
+      }));
+    }
+  };
+
 
 
 

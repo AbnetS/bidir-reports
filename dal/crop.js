@@ -130,8 +130,8 @@ exports.getCollection = function getCollection(query, qs) {
     resolve(
      Crop
       .find(query, returnFields)
-      .populate(population)
-      .stream());
+      .populate(population))
+      //.stream());
   });
 
 

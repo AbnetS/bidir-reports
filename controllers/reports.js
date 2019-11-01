@@ -40,6 +40,7 @@ const HistoryDal         = require('../dal/history');
 const ACATDal            = require('../dal/ACAT');
 const ReportDal          = require('../dal/report');
 const ReportTypeDal      = require('../dal/reportType');
+const ClientACATDal      = require('../dal/clientACAT');
 
 const config             = require('../config/index');
 
@@ -172,7 +173,7 @@ exports.fetchOne = function* fetchOneReportType(next) {
     const REPORTS = {
       CLIENTS_BY_GENDER: viewByGender,
       CLIENTS_BY_BRANCH: viewByBranch,
-      CROP_STATS: viewCropsStats,
+      CROP_STATS: returnLoanDataForCrop,
       LOAN_CYCLE_STAGES_STATS: viewStagesStats,
       CLIENTS_BY_CROPS: viewByCrops,
       LOAN_CYCLE_STAGES: viewByStage,
@@ -227,7 +228,7 @@ exports.fetchPdf  = function* fetchPdf(next){
       ACTIVE_CLIENTS_LIST: returnFilteredClientsList,
       // CLIENTS_BY_GENDER: viewByGender,
       // CLIENTS_BY_BRANCH: viewByBranch,
-      CROP_STATS: viewCropsStats,
+      LOAN_DATA_BY_CROP: returnLoanDataForCrop,
       LOAN_CYCLE_STAGES_STATS: viewStagesStats,
       CLIENTS_BY_CROPS: viewByCrops, //will use the summary part
       // LOAN_CYCLE_STAGES: viewByStage,
@@ -313,7 +314,7 @@ exports.fetchDocx  = function* fetchDocx(next){
       ACTIVE_CLIENTS_LIST: returnFilteredClientsList,
       // CLIENTS_BY_GENDER: viewByGender,
       // CLIENTS_BY_BRANCH: viewByBranch,
-      CROP_STATS: viewCropsStats,
+      LOAN_DATA_BY_CROP: returnLoanDataForCrop,
       LOAN_CYCLE_STAGES_STATS: viewStagesStats,
       CLIENTS_BY_CROPS: viewByCrops,//will use the summary part
       // LOAN_CYCLE_STAGES: viewByStage,
@@ -329,24 +330,15 @@ exports.fetchDocx  = function* fetchDocx(next){
       throw new Error('Report Generator Not Implemented!');
     }
 
-    let result = yield REPORTS[type[0]](this, reportType);
-    //let data = result;
-    // let data = [];
-    // if (result.length) data = result;
-    // else if (result.data){
-    //     data = result.data
-    // }
-    // else{
-    //   data.push(result)
-    // }   
+    let result = yield REPORTS[type[0]](this, reportType);     
 
-  let template = "./templates/" + type + ".docx";
-  let docGenerator = new DOC_GENERATOR(); 
-  let report = yield docGenerator.generateDoc(result, template);
+    let template = "./templates/" + type + ".docx";
+    let docGenerator = new DOC_GENERATOR(); 
+    let report = yield docGenerator.generateDoc(result, template);
 
-  
-  let buf = Buffer.from(report); 
-  this.body = buf;
+    
+    let buf = Buffer.from(report); 
+    this.body = buf;
 
 
 } catch(ex) {
@@ -403,7 +395,7 @@ async function returnFilteredClientsList(ctx, reportType){
       query.created_by = user._id;
     }
 
-    //filter individual clients
+    //filter individual clients******************************
     //query.for_group = Boolean(0); 
 
     let parameters = []; let sets = []; let list = []; 
@@ -423,6 +415,16 @@ async function returnFilteredClientsList(ctx, reportType){
     if (!((body.fromDate && body.toDate) || (!body.fromDate && !body.toDate))) //they have to exist in pair
       throw new Error("Incomplete date range is detected in the request");
     
+    
+    for (let param of reportType.parameters){
+      if (Object.keys(body).includes (param.code)){
+        parameters.push({"label": param.name, "value":body[param.code].display});
+      } else {
+        parameters.push({"label": param.name, "value":"Not specified"});
+        parameters[parameters.length - 1].remark =  " (" + param.remark + ")";
+      }
+    }
+  
     if (Object.keys(body).length === 0){
       list = await returnAllClientsList (query);
       sets.push(list);
@@ -433,14 +435,14 @@ async function returnFilteredClientsList(ctx, reportType){
         let param = reportType.parameters.find(item => item.code === key);
         //Add validation if param is not found
         if (!range && (param.code === "fromDate" || param.code === "toDate")){
-          parameters.push({"label": "Date Range", "value":body.fromDate.display + " - " + body.toDate.display});
+          //parameters.push({"label": "Date Range", "value":body.fromDate.display + " - " + body.toDate.display});
           list = await filterFunction[key](query, body.fromDate.send, body.toDate.send);
           sets.push (list);
           range = true;
         }
         else if (range && (param.code === "fromDate" || param.code === "toDate")) continue; 
         else {
-          parameters.push({"label": param.name, "value":body[key].display});
+          //parameters.push({"label": param.name, "value":body[key].display});
           list = await filterFunction[key](query, body[key].send);
           sets.push (list);
         }
@@ -490,6 +492,10 @@ async function returnFilteredClientsList(ctx, reportType){
       client.No = i;
       i++;
     }
+
+    if (account)    result.user = account.first_name + " " + account.last_name;
+    else result.user = "Super Administrator"
+
     return result;
 
   } catch (ex){
@@ -676,33 +682,55 @@ async function returnFilteredClientsList(ctx, reportType){
 /**
  * Get client loan history
  */
-function* returnClientLoanHistory(ctx, reportType) {
+async function returnClientLoanHistory(ctx, reportType) {
   debug('get client loan history');
 
+  let query = {};  
+
+  let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  await hasPermission(ctx.state._user, 'VIEW');
+
   try {
+    let user = ctx.state._user;
+
+    let account = await Account.findOne({ user: user._id }).exec();
+
+    // Super Admin
+    if (!account || (account.multi_branches && canViewAll)) {
+        //query = {};
+
+    // Can VIEW
+    } else if (canView) {
+      if(account.access_branches.length) {
+          query.branch = { $in: account.access_branches };
+
+      } else if(account.default_branch) {
+          query.branch = account.default_branch;
+
+      }
+    }  
+    
+
     let stats = [];
 
     let parameters = [];  let loanHistory = []; let lastLoanCycles = 0;
 
     let body = ctx.request.body;
-
-    if (body.lastLoanCycles) {
-      lastLoanCycles = body.lastLoanCycles.send;
-      let param = reportType.parameters.find(item => item.code === "lastLoanCycles");
-      if (param){
-        parameters.push({"label": param.name, "value":body["lastLoanCycles"].display});
+    for (let param of reportType.parameters){
+      if (Object.keys(body).includes (param.code)){
+        parameters.push({"label": param.name, "value":body[param.code].display});
+      } else {
+        parameters.push({"label": param.name, "value":"Not specified"});
+        parameters[parameters.length - 1].remark =  " (" + param.remark + ")";
       }
     }
 
+    if (body.lastLoanCycles) lastLoanCycles = body.lastLoanCycles.send;
+      
     if (!body.client) {      
-      parameters.push({"label": "Clients", "value":"All Clients"});
-      loanHistory = yield returnAllClientsLoanHistory (lastLoanCycles);
+      loanHistory = await returnAllClientsLoanHistory (query, lastLoanCycles);
     } else {
-      let param = reportType.parameters.find(item => item.code === "client");
-      if (param){
-        parameters.push({"label": param.name, "value":body["client"].display});
-      }
-      loanHistory = yield returnASingleClientLoanHistory (lastLoanCycles);
+      loanHistory = await returnASingleClientLoanHistory (lastLoanCycles);
     } 
 
     
@@ -726,9 +754,8 @@ function* returnClientLoanHistory(ctx, reportType) {
       return stats;
     }
 
-    async function returnAllClientsLoanHistory(lastLoanCycles){
-      let query = {};
-
+    async function returnAllClientsLoanHistory(query, lastLoanCycles){
+      
       let clients = await ClientDal.getCollection(query);
 
       for(let client of clients) {
@@ -746,9 +773,20 @@ function* returnClientLoanHistory(ctx, reportType) {
       
      
     async function getStats(client, history, lastLoanCycles) {
+      for (let key in config.STAGE_STATUS){
+        let status = config.STAGE_STATUS[key].statuses.find(item => item.code === client.status);
+        if (status){
+          client.stage = config.STAGE_STATUS[key].stage;
+          client.status = status.name;
+          break;   
+        }        
+      }  
       let data = {
         client: `${client.first_name} ${client.last_name} ${client.grandfather_name}`,
         total_loan_cycles: client.loan_cycle_number,
+        branch: client.branch.name,
+        stage: client.stage,
+        status:client.status,
         //date: moment().format('MMMM DD, YYYY'),s
         loan_cycles: []
       }
@@ -764,24 +802,39 @@ function* returnClientLoanHistory(ctx, reportType) {
         if (checkCycles){
           if (cycle.cycle_number <= afterLoanCycle) continue;
         }
-        if (!cycle.acat) { continue; }
-        let clientACAT = await ClientACAT.findOne({ _id: cycle.acat }).exec();
-        let loanProposal = await LoanProposal.findOne({ client_acat: clientACAT._id }).exec();
-        let acats = await ACATDal.getCollection({ _id: { $in: clientACAT.ACATs }});
-        let crops = acats.map(function (acat){
-          return {"name": acat.crop.name};
-        });
-        let stat = {
-          crops: crops,
-          loan_cycle_no: cycle.cycle_number,
-          estimated_total_cost: clientACAT.estimated.total_cost,
-          estimated_total_revenue: clientACAT.estimated.total_revenue,
-          actual_total_cost: clientACAT.achieved.total_cost,
-          actual_total_revenue: clientACAT.achieved.total_revenue,
-          estimated_net_profit: clientACAT.estimated.total_revenue - clientACAT.estimated.total_cost,
-          actual_net_profit: clientACAT.achieved.total_revenue - clientACAT.achieved.total_cost,
-          loan_requested: loanProposal ? loanProposal.loan_requested : 0,
-          loan_approved: loanProposal ?  loanProposal.loan_approved : 0
+        let stat = {}; let crops = [{"name":"Not specified yet"}];
+        if (!cycle.acat) { 
+          stat = {
+            crops: crops,
+            loan_cycle_no: cycle.cycle_number,
+            estimated_total_cost: "-",
+            estimated_total_revenue: "-",
+            actual_total_cost: "-",
+            actual_total_revenue: "-",
+            estimated_net_profit: "-",
+            actual_net_profit: "-",
+            loan_requested: "-",
+            loan_approved: "-"
+          }
+        } else {
+          let clientACAT = await ClientACAT.findOne({ _id: cycle.acat }).exec();
+          let loanProposal = await LoanProposal.findOne({ client_acat: clientACAT._id }).exec();
+          let acats = await ACATDal.getCollection({ _id: { $in: clientACAT.ACATs }});
+          crops = acats.map(function (acat){
+            return {"name": acat.crop.name};
+          });
+          stat = {
+            crops: crops,
+            loan_cycle_no: cycle.cycle_number,
+            estimated_total_cost: clientACAT.estimated.total_cost,
+            estimated_total_revenue: clientACAT.estimated.total_revenue,
+            actual_total_cost: clientACAT.achieved.total_cost,
+            actual_total_revenue: clientACAT.achieved.total_revenue,
+            estimated_net_profit: clientACAT.estimated.total_revenue - clientACAT.estimated.total_cost,
+            actual_net_profit: clientACAT.achieved.total_revenue - clientACAT.achieved.total_cost,
+            loan_requested: loanProposal ? loanProposal.loan_requested : 0,
+            loan_approved: loanProposal ?  loanProposal.loan_approved : 0
+          }
         }
 
         data.loan_cycles.push(stat);
@@ -796,6 +849,9 @@ function* returnClientLoanHistory(ctx, reportType) {
     //Set date  for the report data
     let currentDate = moment().format('MMMM DD, YYYY');
     result.date = currentDate;
+    result.reportName = reportType.title;
+    if (account)    result.user = account.first_name + " " + account.last_name;
+    else result.user = "Super Administrator"
 
     //Set loan history and parameters list for the report data
     result.data.parameters = parameters; /*let i = 1;*/
@@ -805,6 +861,133 @@ function* returnClientLoanHistory(ctx, reportType) {
 
   } catch(ex) {
     ex.type = 'CLIENT_DETAILED_LOAN_HISTORY';
+    throw ex;
+  }
+}
+
+async function returnLoanDataForCrop(ctx, reportType) {
+  debug('get loan cycle crops stats');
+
+
+  let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
+  let canView =  await hasPermission(ctx.state._user, 'VIEW');
+
+  let query = {};
+  try {
+
+    let body = ctx.request.body;
+    if (!((body.fromDate && body.toDate) || (!body.fromDate && !body.toDate))) //they have to exist in pair
+      throw new Error("Incomplete date range is detected in the request");
+
+    let user = ctx.state._user;
+
+    let account = await Account.findOne({ user: user._id }).exec();
+
+    if (body.branch){
+      query.branch = body.branch.send
+    } else {
+      // Super Admin
+      if (!account || (account.multi_branches && canViewAll)) {
+          //query = {};
+
+      // Can VIEW ALL
+      } else if (canView) {
+        if(account.access_branches.length) {
+            query.branch = { $in: account.access_branches };
+
+        } else if(account.default_branch) {
+            query.branch = account.default_branch;
+
+        }
+
+      }
+  }
+
+    let parameters = []; 
+
+    
+    for (let param of reportType.parameters){
+      if (Object.keys(body).includes (param.code)){
+        parameters.push({"label": param.name, "value":body[param.code].display});
+      } else {
+        parameters.push({"label": param.name, "value":"Not specified"});
+        parameters[parameters.length - 1].remark = " (" + param.remark + ")";
+      }
+    }
+    body.clientType = body.clientType?body.clientType.send:null;
+    body.fromDate?body.fromDate.send:null;
+    body.toDate?body.toDate.send:null;
+
+    let stats = await returnLoanData(body.clientType, body.fromDate, body.toDate);
+
+
+
+    async function returnLoanData(clientType, fromDate, toDate){
+      // @TODO improve with aggregation
+      let stats = [];
+      let crops = await Crop.find({}).exec();
+      for (let crop of crops) {
+        crop.clients = [];
+        crop.totalLoanAmount = 0;
+      }
+
+      let qry = {};
+      if (fromDate && toDate){
+        qry = {date_created:{
+          $gte: new Date (fromDate),
+          $lte: new Date (toDate)
+        }}
+      }      
+
+
+      let loanProposals = await LoanProposal.find(qry).exec();
+
+      for (let loanProposal of loanProposals){
+        if (loanProposal.status != "new" || loanProposal.status != "inprogress"){
+          //Filter clients if required
+          if (clientType){
+            let client = await ClientDal.get({_id: loanProposal.client});
+            if (clientType === "1"){ //indivdual
+              if (client.for_group == true) continue; }//ignore group clients
+            else {
+              if (client.for_group == false) continue;} //ignore individual clients
+          }
+          query._id = loanProposal.client_acat;
+          let clientACAT = await ClientACATDal.get(query);
+          if (clientACAT){
+            for (let acat of clientACAT.ACATs){
+              let index = crops.findIndex ((elt) => {return elt._id.toString() === acat.crop._id.toString()});
+              crops[index].totalLoanAmount += loanProposal.loan_approved;
+              if (!crops[index].clients.includes(loanProposal.client))
+                crops[index].clients.push(loanProposal.client);
+            }
+          }
+        }
+      }
+
+      for (let crop of crops){
+        stats.push({
+          crop: crop.name,
+          no_of_clients: crop.clients.length,
+          total_loan_amount: crop.totalLoanAmount
+        })
+      }
+      return stats;
+  }
+    
+    let result = {}; result.data = {};
+    
+    //Set date for the report data
+    let currentDate = moment().format('MMMM DD, YYYY');
+    result.date = currentDate;
+    result.data.loanData = stats;  
+    result.data.parameters = parameters; 
+    if (account)    result.user = account.first_name + " " + account.last_name;
+    else result.user = "Super Administrator"
+
+    return result;
+
+  } catch(ex) {
     throw ex;
   }
 }
@@ -978,78 +1161,7 @@ async function viewByGender(ctx, reportType) {
  * View loan cycle stages stats
  * // /reports/stage/stats
  */
-async function viewCropsStats(ctx, reportType) {
-  debug('get loan cycle crops stats');
 
-
-  let canViewAll =  await hasPermission(ctx.state._user, 'VIEW_ALL');
-  let canView =  await hasPermission(ctx.state._user, 'VIEW');
-
-
-  try {
-    let user = ctx.state._user;
-
-    let account = await Account.findOne({ user: user._id }).exec();
-
-    // Super Admin
-    if (!account || (account.multi_branches && canViewAll)) {
-        //query = {};
-
-    // Can VIEW ALL
-    } else if (canViewAll) {
-      if(account.access_branches.length) {
-          query.branch = { $in: account.access_branches };
-
-      } else if(account.default_branch) {
-          query.branch = account.default_branch;
-
-      }
-
-    // DEFAULT
-    } else {
-      query.created_by = user._id;
-    }
-
-    // @TODO improve with aggregation
-    let stats = [];
-    let crops = await Crop.find({}).exec();
-
-    for(let crop of crops) {
-      let acats = await ACAT.find({
-        crop: crop
-      }).exec();
-
-      let totalLoanAmount = 0;
-      let totalClients = acats.length;
-
-      for(let acat of acats) {
-        let loanProposals = await LoanProposal.find({
-          client: acat.client
-        }).exec();
-
-        for(let proposal of loanProposals) {
-          totalLoanAmount += +proposal.loan_approved
-        }
-      }
-
-      stats.push({
-        crop: crop.name,
-        no_of_clients: totalClients,
-        total_loan_amount: totalLoanAmount
-      })
-    }
-
-    await ReportDal.create({
-      type: reportType._id,
-      data: stats
-    })
-
-    return stats;
-
-  } catch(ex) {
-    throw ex;
-  }
-}
 
 /**
  * View loan cycle stages stats

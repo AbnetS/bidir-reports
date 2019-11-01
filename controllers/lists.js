@@ -123,42 +123,14 @@ exports.fetchAllCrops = function* fetchAllCrops(next) {
     }
   
     // retrieve pagination query params
-    let page   = this.query.page || 1;
-    let limit  = this.query.per_page || 10;
-    let query = {};
-  
-    let sortType = this.query.sort_by;
-    let sort = {};
-    sortType ? (sort[sortType] = -1) : (sort.date_created = -1 );
-  
-    let opts = {
-      page: +page,
-      limit: +limit,
-      sort: sort
-    };
-  
     try {
-  
-      let user = this.state._user;
-      let account = yield Account.findOne({ user: user._id }).exec();
-  
-      if(account) {
-        if(!account.multi_branches) {
-          if(account.access_branches.length) {
-            query._id = { $in: account.access_branches };
-  
-          } else if(account.default_branch) {
-            query._id = account.default_branch;
-  
-          }
-        }
-      }
-  
-      let crops = yield CropDal.getCollectionByPagination(query, opts);
+      let query = {};
+
+      let crops = yield CropDal.getCollection(query);
 
       let returnCrops = [];
 
-      for (let crop of crops.docs){
+      for (let crop of crops){
           let returnCrop = {};
           returnCrop.send = crop._id;
           returnCrop.display = crop.name;
@@ -209,16 +181,19 @@ exports.searchClients = function* searchClients(next) {
       if(account) {
         if(!account.multi_branches) {
           if(account.access_branches.length) {
-            query._id = { $in: account.access_branches };
+            query.branch = { $in: account.access_branches };
   
           } else if(account.default_branch) {
-            query._id = account.default_branch;
+            query.branch = account.default_branch;
   
           }
         }
       }
 
       let searchTerm = this.query.search;
+      
+      //Filter only individual clients
+      //query.for_group = Boolean(0);
 
       query.$or = [];
       let terms = searchTerm.split(/\s+/);

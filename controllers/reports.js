@@ -402,6 +402,7 @@ async function returnFilteredClientsList(ctx, reportType){
 
     const filterFunction = { 
       gender: returnClientsListFilteredByGender,
+      loanOfficer: returnClientsListFilteredByLoanOfficer,
       status: returnClientsListFilteredByStatus,
       branch: returnClientsListFilteredByBranch,
       loanStage: returnClientsListFilteredByStage,
@@ -476,6 +477,7 @@ async function returnFilteredClientsList(ctx, reportType){
       let dateAndCropOfLastLoanCycle =  await getTheLastLoanCycleDateAndCrop(client._doc);
       client._doc.loanCycleStartedAt =  moment(dateAndCropOfLastLoanCycle.loanProcessStartedAt).format("MMM DD, YYYY");    
       client._doc.crops = dateAndCropOfLastLoanCycle.crops;
+      client._doc.loanOfficer = await getTheLoanOfficer (client._doc);
       result.data.clients.push(client._doc);
       //i++;
     }  
@@ -511,6 +513,13 @@ async function returnFilteredClientsList(ctx, reportType){
     query.gender = gender;    
     let clients = await ClientDal.getCollection(query);
     delete query.gender;
+    return clients;
+  }
+
+  async function returnClientsListFilteredByLoanOfficer(query, loanOfficer){
+    query.created_by = loanOfficer;    
+    let clients = await ClientDal.getCollection(query);
+    delete query.created_by;
     return clients;
   }
 
@@ -638,6 +647,16 @@ async function returnFilteredClientsList(ctx, reportType){
       
     }
     return statusList;
+  }
+
+  async function getTheLoanOfficer(client){    
+    let account = await Account.findOne({user: client.created_by});
+    if (account)
+      return account.first_name + " " + account.last_name;
+    else
+      return "";
+    
+
   }
 
   async function getTheLastLoanCycleDateAndCrop(client){

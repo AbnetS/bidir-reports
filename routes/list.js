@@ -14,6 +14,8 @@ var router  = Router();
 
 router.get('/branches', acl(['*']), listsController.fetchAllBranches);
 
+router.get('/loanOfficers', acl(['*']), listsController.fetchAllLoanOfficers);
+
 router.get('/crops', acl(['*']), listsController.fetchAllCrops);
 
 router.get('/clients/search', acl(['*']), listsController.searchClients);

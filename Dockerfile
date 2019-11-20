@@ -8,6 +8,8 @@ ADD . /usr/src/app
 WORKDIR /usr/src/app
 
 RUN npm install
+RUN apt-get update && apt-get install -y \
+    libreoffice --no-install-recommends
 
 EXPOSE 8180
 

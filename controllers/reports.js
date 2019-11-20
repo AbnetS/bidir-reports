@@ -268,37 +268,24 @@ exports.fetchPdf  = function* fetchPdf(next){
     }
 
     let result = yield REPORTS[type[0]](this, reportType);
-    let data = [];
-    if (result.length) data = result
-    else if (result.data){
-        data = result.data
-    }
-    else{
-      data.push(result)
-    } 
+   
     
 
-  let template = "./templates/" + type + ".docx" 
-  let docGenerator = new DOC_GENERATOR(); 
-  let report = yield docGenerator.generatePdf(data, template);
+    let template = "./templates/" + type + ".docx" 
+    let docGenerator = new DOC_GENERATOR(); 
+    //let report = yield docGenerator.generatePdf(result, template);
+    let report = yield docGenerator.generateDoc(result, template);
   
   //let buf = Buffer.from(report);
   
   //***********convert to pdf using the LibreOffice converter library**************/  
-  // let libreConverter = new LIBRE_CONVERTER();
-  // fs.writeFileSync("./temp/report.docx", report);
-  // let pdf = yield libreConverter.convertToPdf("./temp/report.docx");
-  // //buf = Buffer.from(pdf);
-  // fs.unlinkSync("./temp/report.docx");
+  let libreConverter = new LIBRE_CONVERTER();
+  fs.writeFileSync("./temp/report.docx", report);
+  let pdf = yield libreConverter.convertToPdf("./temp/report.docx");
+  //buf = Buffer.from(pdf);
+  fs.unlinkSync("./temp/report.docx");
 
-  //***********convert to pdf using the docx-wasm pdf converter which has higher quality but needs Internet connection**************/
-  // let pdfConverter = new PDF_CONVERTER();
-  // let pdf = yield pdfConverter.convertHelper(report,"exportPDF");
-  // let buf = Buffer.from(pdf);
-  
-
-  //this.body = pdf;
-  this.body = report;
+  this.body = pdf;
 
 } catch(ex) {
   return this.throw(new CustomError({
@@ -338,7 +325,7 @@ exports.fetchDocx  = function* fetchDocx(next){
       // CLIENTS_BY_GENDER: viewByGender,
       // CLIENTS_BY_BRANCH: viewByBranch,
       LOAN_DATA_BY_CROP: returnLoanDataForCrop,
-      LOAN_CYCLE_STAGES_STATS: viewStagesStats,
+      CLIENTS_BY_STAGE: viewStagesStats,
       CLIENTS_BY_CROPS: viewByCrops,//will use the summary part
       // LOAN_CYCLE_STAGES: viewByStage,
       CLIENT_DETAILED_LOAN_HISTORY: returnClientLoanHistory,
@@ -1214,6 +1201,10 @@ async function viewStagesStats(ctx, reportType) {
 
   try {
     let user = ctx.state._user;
+
+    for (let key of config.STAGE_STATUS.keys){
+
+    }
 
     // Proxy via History Model
     // @TODO Improve with aggregation

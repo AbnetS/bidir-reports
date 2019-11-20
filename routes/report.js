@@ -322,6 +322,8 @@ router.get('/all', acl(['*']), reportsController.getCollection);
 
 router.get('/:id', acl(['*']), reportsController.fetchOne);
 
+router.delete('/:id', acl(['*']), reportsController.deleteOne);
+
 
 router.put('/:id', acl(['*']), reportsController.update);
 

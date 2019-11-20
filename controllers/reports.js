@@ -116,6 +116,29 @@ exports.update = function* updateReportTypes(next) {
   }
 }
 
+exports.deleteOne = function* deleteReportTypes(next) {
+  debug(`delete report type: ${this.params.id}`);
+
+  let query = {
+    _id: this.params.id
+  };
+
+  
+
+  try {
+
+    let reportType = yield ReportTypeDal.delete(query);
+
+    this.body = reportType;
+
+  } catch(ex) {
+    return this.throw(new CustomError({
+      type: 'DELETE_REPORT_TYPES_ERROR',
+      message: ex.message
+    }));
+  }
+}
+
 /**
  * Get a report type.
  *

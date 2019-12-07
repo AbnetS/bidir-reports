@@ -33,7 +33,11 @@ const ClientACAT         = require('../models/clientACAT');
 const Client             = require('../models/client');
 const LoanProposal       = require('../models/loanProposal');
 const Screening          = require('../models/screening');
+const User               = require('../models/user');
+const Group              = require('../models/group');
 
+
+const UserDal            = require ('../dal/user')
 const ClientDal          = require('../dal/client');
 const LogDal             = require('../dal/log');
 const HistoryDal         = require('../dal/history');
@@ -360,6 +364,102 @@ exports.fetchDocx  = function* fetchDocx(next){
 
 }
 
+exports.getCounts = function* getCounts(next){
+  try {
+    let branches = yield Branch.find({status:"active"});
+    let branchesCount = 0;
+    if (branches.length)
+      branchesCount = branches.length;
+
+    let users = yield User.find({});
+    let usersCount = 0;
+    if (users.length)
+      usersCount = users.length;
+
+    let clients = yield Client.find({for_group: false});
+    let clientsCount = 0;
+    if(clients.length)
+      clientsCount = clients.length;
+
+    let groups = Group.find({});
+    let groupsCount = 0;
+    if (groups.length)
+      groupsCount = groups.length
+
+    let response = {
+    branches: branchesCount,
+      users: usersCount,
+      individualClients: clientsCount,
+      groupClients: groupsCount
+    }
+
+    this.body = response;
+
+
+  } catch (ex){
+    return this.throw(new CustomError({
+      type: ex.type ? ex.type : 'VIEW_DASHBOARD_COUNT_ERROR',
+      message: JSON.stringify(ex.stack),
+    }))
+  }
+}
+
+function ChartData(name, type, labels, data) {
+  this.name = name;
+  this.type = type;
+  this.labels = labels;
+  this.data = data;
+}
+
+exports.getDashboardStats = function* getDashboardStats(next){
+  try {
+    //Get Loan data for bar chart
+
+    let ClientsCountByStage = new ChartData("Clients Count By Stage", "PIE", [], []);
+    let loanAmountByCrop = new ChartData("Loan Amount by Crop","BAR",[], []);
+    let clientCountByCrop = new ChartData("Client Count by Crop","BAR",[], []);
+      
+    
+    for (let key of Object.keys(config.STAGE_STATUS)){
+      let filteredClients = yield returnClientsListFilteredByStage({}, key);
+      let stage = config.STAGE_STATUS[key];
+      ClientsCountByStage.labels.push(stage.stage);
+      ClientsCountByStage.data.push(filteredClients.length);
+    }
+
+    let stats = yield returnLoanData(1, {});
+
+    
+
+    for (let stat of stats){
+      loanAmountByCrop.labels.push(stat.crop);
+      loanAmountByCrop.data.push(stat.total_loan_amount);
+      clientCountByCrop.labels.push(stat.crop);
+      clientCountByCrop.data.push(stat.no_of_clients);
+
+    }
+
+    let response = [];
+    response.push(loanAmountByCrop);
+    response.push(clientCountByCrop);
+    response.push(ClientsCountByStage);
+
+    //let response = stats;
+      
+    
+    this.body = response;
+
+
+  } catch (ex){
+    return this.throw(new CustomError({
+      type: ex.type ? ex.type : 'VIEW_DASHBOARD_STAT_ERROR',
+      message: JSON.stringify(ex.stack),
+    }))
+  }
+
+}
+
+
 
 
 // Reports Generators
@@ -554,20 +654,7 @@ async function returnFilteredClientsList(ctx, reportType){
     return clients;
   }
 
-  async function returnClientsListFilteredByStage(query, stage){
-    //let patterns = stage.replace(" ","_");
-    //let statusList = await getStatuses (stage);
-    let statusList = [];
-    let statuses = config.STAGE_STATUS[stage].statuses;
-    for (let status of statuses){
-      statusList.push(status.code)
-    }
-    
-    query.status = {'$in' : statusList}
-    let clients = await ClientDal.getCollection(query);
-    delete query.status;
-    return clients;
-  }
+  
 
   /* Filter clients list by their last loan cycle crop */
   async function returnClientsListFilteredByCrop (query, crop){
@@ -602,6 +689,8 @@ async function returnFilteredClientsList(ctx, reportType){
 
   return clients;
 }
+
+
 
   /* Filter clients list by date range - date of screening of last loan cycle is considered as
      the date the latest loan processing is started. Registration date is not considered here as
@@ -639,6 +728,8 @@ async function returnFilteredClientsList(ctx, reportType){
   return clients;
 
   }
+
+  
 
 
   //Helper Functions
@@ -705,6 +796,21 @@ async function returnFilteredClientsList(ctx, reportType){
 
   }
 
+}
+
+async function returnClientsListFilteredByStage(query, stage){
+  //let patterns = stage.replace(" ","_");
+  //let statusList = await getStatuses (stage);
+  let statusList = [];
+  let statuses = config.STAGE_STATUS[stage].statuses;
+  for (let status of statuses){
+    statusList.push(status.code)
+  }
+  
+  query.status = {'$in' : statusList}
+  let clients = await ClientDal.getCollection(query);
+  delete query.status;
+  return clients;
 }
 
 
@@ -947,62 +1053,7 @@ async function returnLoanDataForCrop(ctx, reportType) {
     body.fromDate?body.fromDate.send:null;
     body.toDate?body.toDate.send:null;
 
-    let stats = await returnLoanData(body.clientType, body.fromDate, body.toDate);
-
-
-
-    async function returnLoanData(clientType, fromDate, toDate){
-      // @TODO improve with aggregation
-      let stats = [];
-      let crops = await Crop.find({}).exec();
-      for (let crop of crops) {
-        crop.clients = [];
-        crop.totalLoanAmount = 0;
-      }
-
-      let qry = {};
-      if (fromDate && toDate){
-        qry = {date_created:{
-          $gte: new Date (fromDate),
-          $lte: new Date (toDate)
-        }}
-      }      
-
-
-      let loanProposals = await LoanProposal.find(qry).exec();
-
-      for (let loanProposal of loanProposals){
-        if (loanProposal.status != "new" || loanProposal.status != "inprogress"){
-          //Filter clients if required
-          if (clientType){
-            let client = await ClientDal.get({_id: loanProposal.client});
-            if (clientType === "1"){ //indivdual
-              if (client.for_group == true) continue; }//ignore group clients
-            else {
-              if (client.for_group == false) continue;} //ignore individual clients
-          }
-          query._id = loanProposal.client_acat;
-          let clientACAT = await ClientACATDal.get(query);
-          if (clientACAT){
-            for (let acat of clientACAT.ACATs){
-              let index = crops.findIndex ((elt) => {return elt._id.toString() === acat.crop._id.toString()});
-              crops[index].totalLoanAmount += loanProposal.loan_approved;
-              if (!crops[index].clients.includes(loanProposal.client))
-                crops[index].clients.push(loanProposal.client);
-            }
-          }
-        }
-      }
-
-      for (let crop of crops){
-        stats.push({
-          crop: crop.name,
-          no_of_clients: crop.clients.length,
-          total_loan_amount: crop.totalLoanAmount
-        })
-      }
-      return stats;
-  }
+    let stats = await returnLoanData(body.clientType, query, body.fromDate, body.toDate);    
     
     let result = {}; result.data = {};
     
@@ -1019,6 +1070,59 @@ async function returnLoanDataForCrop(ctx, reportType) {
   } catch(ex) {
     throw ex;
   }
+}
+
+async function returnLoanData(clientType, query, fromDate, toDate){
+  // @TODO improve with aggregation
+  let stats = [];
+  let crops = await Crop.find({}).exec();
+  for (let crop of crops) {
+    crop.clients = [];
+    crop.totalLoanAmount = 0;
+  }
+
+  let qry = {};
+  if (fromDate && toDate){
+    qry = {date_created:{
+      $gte: new Date (fromDate),
+      $lte: new Date (toDate)
+    }}
+  }      
+
+
+  let loanProposals = await LoanProposal.find(qry).exec();
+
+  for (let loanProposal of loanProposals){
+    if (loanProposal.status != "new" || loanProposal.status != "inprogress"){
+      //Filter clients if required
+      if (clientType){
+        let client = await ClientDal.get({_id: loanProposal.client});
+        if (clientType === "1"){ //indivdual
+          if (client.for_group == true) continue; }//ignore group clients
+        else {
+          if (client.for_group == false) continue;} //ignore individual clients
+      }
+      query._id = loanProposal.client_acat;
+      let clientACAT = await ClientACATDal.get(query);
+      if (clientACAT){
+        for (let acat of clientACAT.ACATs){
+          let index = crops.findIndex ((elt) => {return elt._id.toString() === acat.crop._id.toString()});
+          crops[index].totalLoanAmount += loanProposal.loan_approved;
+          if (!crops[index].clients.includes(loanProposal.client))
+            crops[index].clients.push(loanProposal.client);
+        }
+      }
+    }
+  }
+
+  for (let crop of crops){
+    stats.push({
+      crop: crop.name,
+      no_of_clients: crop.clients.length,
+      total_loan_amount: crop.totalLoanAmount
+    })
+  }
+  return stats;
 }
 
 

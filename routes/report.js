@@ -331,6 +331,10 @@ router.post('/:id/pdf', acl(['*']), reportsController.fetchPdf)
 
 router.post('/:id/docx', acl(['*']), reportsController.fetchDocx)
 
+router.get('/dashboard/counts', reportsController.getCounts);
+
+router.get('/dashboard/charts', reportsController.getDashboardStats);
+
 
 
 

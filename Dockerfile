@@ -1,5 +1,5 @@
 # Dockerfile for bidir dev env't reports service
-FROM node:8.8.1
+FROM node:10.15.3
 
 MAINTAINER Teferi Assefa <teferi.assefa@gmail.com>
 

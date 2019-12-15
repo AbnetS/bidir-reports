@@ -13,326 +13,279 @@ const acl               = authController.accessControl;
 var router  = Router();
 
 /**
- * @api {get} /reports/:id?type=Male|Female Get clients by gender
- * @apiVersion 1.0.0
- * @apiName ViewByGender
- * @apiGroup Client
- *
- * @apiDescription Get a collection of clients. The endpoint has pagination
- * out of the box. Use these params to query with pagination: `page=<RESULTS_PAGE`
- * and `per_page=<RESULTS_PER_PAGE>`.
- *
- * @apiSuccess {String} _id client id
- * @apiSuccess {String} first_name First Name
- * @apiSuccess {String} last_name Last Name
- * @apiSuccess {String} grandfather_name Grandfather's Name
- * @apiSuccess {String} gender Gender
- * @apiSuccess {String} national_id_no National Id number
- * @apiSuccess {String} national_id_card National ID Card Url
- * @apiSuccess {String} date_of_birth Date of Birth
- * @apiSuccess {String} civil_status Civil Status - Single,Married,Divorced,Widow,Widower
- * @apiSuccess {String} woreda Woreda
- * @apiSuccess {String} kebele Kebele
- * @apiSuccess {String} house_no House No
- * @apiSuccess {String} [spouse] Spouse
- * @apiSuccess {String} [spouse.first_name] Spouse First Name
- * @apiSuccess {String} [spouse.last_name] Spouse Last Name
- * @apiSuccess {String} [spouse.grandfather_name] Spouse Grandfather's Name
- * @apiSuccess {String} [spouse.national_id_no] Spouse National Id number
- * @apiSuccess {String} [geolocation] Geolocation Info
- * @apiSuccess {String} [geolocation.latitude] Latitude
- * @apiSuccess {String} [geolocation.longitude] Longitude
- * @apiSuccess {String} [email] Email Address
- * @apiSuccess {String} phone Phone Number
- * @apiSuccess {Number} household_members_count Household Members Count
- * @apiSuccess {Object} branch Branch Client is being registered for
- * @apiSuccess {Object} created_by User registering this
- *
- * @apiSuccessExample Response Example:
- *  {
- *    "total_pages": 1,
- *    "total_docs_count": 0,
- *    "docs": [{
- *    _id : "556e1174a8952c9521286a60",
- *    national_id_card: "https://fb.cdn.ugusgu.us./client/285475474224.png",
- *    first_name: "Mary",
- *    last_name: "Jane",
- *    grandfather_name: "John Doe",
- *    national_id_no: "242535353",
- *    date_of_birth: "'1988-11-10T00:00:00.000Z",
- *    civil_status: "single", 
- *    woreda: "Woreda",
- *    kebele: "kebele",
- *    house_no: "House Apartments, 4th Floor, F4"
- *    email: "mary.jane@gmail.com",
- *    gender: "Female",
- *    household_members_count: 1,
- *    branch: {
- *		 _id : "556e1174a8952c9521286a60",
- *       ....
- *    },
- *    created_by: {
- *		 _id : "556e1174a8952c9521286a60",
- *       ....
- *    },
- *    spouse: {
- *      first_name: "",
- *      last_name: "",
- *      grandfather_name: "",
- *      national_id_no: "",
- *    },
- *    geolocation: {
- *      latitude: 0,
- *      longitude: 0
- *    }
- *    }]
- *  }
- */
-
-/**
- * @api {get} /reports/:id?name=<loan|screening|acar> Get clients by Loan Cycle Stage
- * @apiVersion 1.0.0
- * @apiName ClientsByStage
- * @apiGroup Client
- *
- * @apiDescription Get a collection of clients by loan cycle stage. The endpoint has pagination
- * out of the box. Use these params to query with pagination: `page=<RESULTS_PAGE`
- * and `per_page=<RESULTS_PER_PAGE>`. Set Status in query `name=<loan|screening|acat>`
- *
- * @apiSuccess {String} _id client id
- * @apiSuccess {String} first_name First Name
- * @apiSuccess {String} last_name Last Name
- * @apiSuccess {String} grandfather_name Grandfather's Name
- * @apiSuccess {String} gender Gender
- * @apiSuccess {String} national_id_no National Id number
- * @apiSuccess {String} national_id_card National ID Card Url
- * @apiSuccess {String} date_of_birth Date of Birth
- * @apiSuccess {String} civil_status Civil Status - Single,Married,Divorced,Widow,Widower
- * @apiSuccess {String} woreda Woreda
- * @apiSuccess {String} kebele Kebele
- * @apiSuccess {String} house_no House No
- * @apiSuccess {String} [spouse] Spouse
- * @apiSuccess {String} [spouse.first_name] Spouse First Name
- * @apiSuccess {String} [spouse.last_name] Spouse Last Name
- * @apiSuccess {String} [spouse.grandfather_name] Spouse Grandfather's Name
- * @apiSuccess {String} [spouse.national_id_no] Spouse National Id number
- * @apiSuccess {String} [geolocation] Geolocation Info
- * @apiSuccess {String} [geolocation.latitude] Latitude
- * @apiSuccess {String} [geolocation.longitude] Longitude
- * @apiSuccess {String} [email] Email Address
- * @apiSuccess {String} phone Phone Number
- * @apiSuccess {Number} household_members_count Household Members Count
- * @apiSuccess {Object} branch Branch Client is being registered for
- * @apiSuccess {Object} created_by User registering this
- *
- * @apiSuccessExample Response Example:
- *  {
- *    "total_pages": 1,
- *    "total_docs_count": 0,
- *    "docs": [{
- *    _id : "556e1174a8952c9521286a60",
- *    national_id_card: "https://fb.cdn.ugusgu.us./client/285475474224.png",
- *    first_name: "Mary",
- *    last_name: "Jane",
- *    grandfather_name: "John Doe",
- *    national_id_no: "242535353",
- *    date_of_birth: "'1988-11-10T00:00:00.000Z",
- *    civil_status: "single", 
- *    woreda: "Woreda",
- *    kebele: "kebele",
- *    house_no: "House Apartments, 4th Floor, F4"
- *    email: "mary.jane@gmail.com",
- *    gender: "Female",
- *    household_members_count: 1,
- *    branch: {
- *     _id : "556e1174a8952c9521286a60",
- *       ....
- *    },
- *    created_by: {
- *     _id : "556e1174a8952c9521286a60",
- *       ....
- *    },
- *    spouse: {
- *      first_name: "",
- *      last_name: "",
- *      grandfather_name: "",
- *      national_id_no: "",
- *    },
- *    geolocation: {
- *      latitude: 0,
- *      longitude: 0
- *    }
- *    }]
- *  }
- */
-
-/**
- * @api {get} /reports/:id?crop=<reference> Get clients by Crop
- * @apiVersion 1.0.0
- * @apiName ClientsByCrops
- * @apiGroup Client
- *
- * @apiDescription Get a collection of clients by lcrop. The endpoint has pagination
- * out when id of crop is specified otherwise returns arrays of crop groups with clients. 
- * Use these params to query with pagination: `page=<RESULTS_PAGE`
- * and `per_page=<RESULTS_PER_PAGE>`.
- *
- * @apiSuccess {String} _id client id
- * @apiSuccess {String} first_name First Name
- * @apiSuccess {String} last_name Last Name
- * @apiSuccess {String} grandfather_name Grandfather's Name
- * @apiSuccess {String} gender Gender
- * @apiSuccess {String} national_id_no National Id number
- * @apiSuccess {String} national_id_card National ID Card Url
- * @apiSuccess {String} date_of_birth Date of Birth
- * @apiSuccess {String} civil_status Civil Status - Single,Married,Divorced,Widow,Widower
- * @apiSuccess {String} woreda Woreda
- * @apiSuccess {String} kebele Kebele
- * @apiSuccess {String} house_no House No
- * @apiSuccess {String} [spouse] Spouse
- * @apiSuccess {String} [spouse.first_name] Spouse First Name
- * @apiSuccess {String} [spouse.last_name] Spouse Last Name
- * @apiSuccess {String} [spouse.grandfather_name] Spouse Grandfather's Name
- * @apiSuccess {String} [spouse.national_id_no] Spouse National Id number
- * @apiSuccess {String} [geolocation] Geolocation Info
- * @apiSuccess {String} [geolocation.latitude] Latitude
- * @apiSuccess {String} [geolocation.longitude] Longitude
- * @apiSuccess {String} [email] Email Address
- * @apiSuccess {String} phone Phone Number
- * @apiSuccess {Number} household_members_count Household Members Count
- * @apiSuccess {Object} branch Branch Client is being registered for
- * @apiSuccess {Object} created_by User registering this
- *
- * @apiSuccessExample Response Example:
- *  {
- *    "total_pages": 1,
- *    "total_docs_count": 0,
- *    "docs": [{
- *    _id : "556e1174a8952c9521286a60",
- *    national_id_card: "https://fb.cdn.ugusgu.us./client/285475474224.png",
- *    first_name: "Mary",
- *    last_name: "Jane",
- *    grandfather_name: "John Doe",
- *    national_id_no: "242535353",
- *    date_of_birth: "'1988-11-10T00:00:00.000Z",
- *    civil_status: "single", 
- *    woreda: "Woreda",
- *    kebele: "kebele",
- *    house_no: "House Apartments, 4th Floor, F4"
- *    email: "mary.jane@gmail.com",
- *    gender: "Female",
- *    household_members_count: 1,
- *    branch: {
- *     _id : "556e1174a8952c9521286a60",
- *       ....
- *    },
- *    created_by: {
- *     _id : "556e1174a8952c9521286a60",
- *       ....
- *    },
- *    spouse: {
- *      first_name: "",
- *      last_name: "",
- *      grandfather_name: "",
- *      national_id_no: "",
- *    },
- *    geolocation: {
- *      latitude: 0,
- *      longitude: 0
- *    }
- *    }]
- *  }
- */
-
-/**
  * @api {post} /reports/create Create Report Type
  * @apiVersion 1.0.0
  * @apiName Create
- * @apiGroup ReportType
+ * @apiGroup Report Type
  *
  * @apiDescription Create a report type
  *
  * @apiParam {String} title Report Title
  * @apiParam {String} type Report Type
- *
- * apiParamExample Request Example:
+ * @apiParam {String} description Report description
+ * @apiParam {Boolean} has_parameters Indicates whether the report has parameters
+ * @apiParam {Object[]} parameters Parameters
+ 
+ * 
+ * @apiParamExample Request Example:
  * {
- *    title: "View Clients By Gender", 
- *    type: "CLIENTS_BY_GENDER", 
- *  }
+* 	    "title": "Active Clients List",
+        "type": "ACTIVE_CLIENTS_LIST",
+        "description":"This report contains list of clients.If filtering is applied, it will be based on the last loan cycle data.",
+        "has_parameters": true,
+        "parameters": [
+                {
+                    "name": "Branch",
+                    "code": "branch",
+                    "type": "SELECT",
+                    "required": false,
+                    "constants": [],
+                    "is_constant": false,
+                    "remark":"All branches that the user is allowed to access will be considered",
+                    "get_from": "lists/branches"
+                },...
+        ]
+        
+ * }
  *
- * @apiSuccess {String} _id Report Type Reference
  * @apiSuccess {String} title Report Title
  * @apiSuccess {String} type Report Type
+ * @apiSuccess {String} description Report description
+ * @apiSuccess {Boolean} has_parameters Indicates whether the report has parameters
+ * @apiSuccess {Object[]} parameters Parameters
+ * @apiSuccess {String} parameters.name Name of the parameter
+ * @apiSuccess {String} parameters.code Code of the parameter
+ * @apiSuccess {String} parameters.required Determines whether the parameter is mandatory
+ * @apiSuccess {String} parameters.remark Remark
+ * @apiSuccess {String} parameters.type Type of parameter /'SELECT', 'TEXT', 'DATE','DATERANGE','SEARCH'/
+ * @apiSuccess {Boolean} parameters.is_constant If the parameters has a constant set of choices
+ * @apiSuccess {Object[]} parameters.constants List of Constants if is_constant is true
+ * @apiSuccess {String} parameters.get_from Url from which constants of the parameter are obtained
  *
  * @apiSuccessExample Response Example:
  * {
- *    _id: "556e1174a8952c9521286a60"
- *    title: "View Clients By Gender", 
- *    type: "CLIENTS_BY_GENDER",
+        "_id": "5d57ac5355497c57987f19cd",
+        "title": "Active Clients List",
+        "type": "ACTIVE_CLIENTS_LIST",
+        "has_parameters": true,
+        "parameters": [
+            {
+                "required": false,
+                "constants": [],
+                "_id": "5dd52eb2d67d03053090e907",
+                "name": "Loan Officer",
+                "code": "loanOfficer",
+                "type": "SELECT",
+                "is_constant": false,
+                "remark": "All loan officers will be considered",
+                "get_from": "lists/loanOfficers"
+            },
+            {
+                ...
+            }...
+        ],
+        "date_created": "2019-08-17T07:27:15.074Z",
+        "last_modified": "2019-11-20T12:16:50.282Z",
+        "description": "This report contains list of clients.If filtering is applied, it will be based on the last loan cycle data."
  * }
  */
 router.post('/create', acl(['*']), reportsController.create);
 
 /**
- * @api {get} /reports/all Get Report Types
+ * @api {get} /reports/all Get All Report Types
  * @apiVersion 1.0.0
  * @apiName Get
- * @apiGroup ReportType
+ * @apiGroup Report Type
  *
- * @apiDescription Get All report type
+ * @apiDescription Get All report types
  *
  *
- * @apiSuccess {String} _id Report Type Reference
- * @apiSuccess {String} title Report Title
- * @apiSuccess {String} type Report Type
- *
- * @apiSuccessExample Response Example:
- * [{
- *    _id: "556e1174a8952c9521286a60"
- *    title: "View Clients By Gender", 
- *    type: "CLIENTS_BY_GENDER",
- * }]
+ * @apiSuccess {Object[]} List List of all reports 
  */
 router.get('/all', acl(['*']), reportsController.getCollection);
 
 /**
- * @api {get} /reports/:id?QUERY_KEY=<QUERY_VALUE> Get Report Type Data
+ * @api {put} /reports/:id Update Report Type
  * @apiVersion 1.0.0
- * @apiName GetData
- * @apiGroup ReportTYPE
+ * @apiName Update
+ * @apiGroup Report Type
  *
- * @apiDescription Get Report Type Data/Stats Generated. Pass All Possible
- * query parameters are defined by the report type.
+ * @apiDescription Update a report type
  *
- * @apiSuccess {Number} clients_under_screening Total Clients under screening
- * @apiSuccess {Number} clients_under_loan Total Clients under loan
- * @apiSuccess {Number} clients_under_acat Total Clients under ACAT
+ * @apiParam {String} title Report Title
+ * @apiParam {String} type Report Type
+ * @apiParam {String} description Report description
+ * @apiParam {Boolean} has_parameters Indicates whether the report has parameters
+ * @apiParam {Object[]} parameters Parameters
+ * 
+ * @apiParamExample Request Example:
+ * {
+* 	    "title": "Active Clients List Report"
+   }
+
+ * @apiSuccess {String} title Report Title
+ * @apiSuccess {String} type Report Type
+ * @apiSuccess {String} description Report description
+ * @apiSuccess {Boolean} has_parameters Indicates whether the report has parameters
+ * @apiSuccess {Object[]} parameters Parameters
+ * @apiSuccess {String} parameters.name Name of the parameter
+ * @apiSuccess {String} parameters.code Code of the parameter
+ * @apiSuccess {String} parameters.required Determines whether the parameter is mandatory
+ * @apiSuccess {String} parameters.remark Remark
+ * @apiSuccess {String} parameters.type Type of parameter /'SELECT', 'TEXT', 'DATE','DATERANGE','SEARCH'/
+ * @apiSuccess {Boolean} parameters.is_constant If the parameters has a constant set of choices
+ * @apiSuccess {Object[]} parameters.constants List of Constants if is_constant is true
+ * @apiSuccess {String} parameters.get_from Url from which constants of the parameter are obtained
  *
  * @apiSuccessExample Response Example:
- * [{ 
- *    clients_under_screening: 100,
- *    clients_under_loan: 167,
- *    clients_under_acat: 12
- *   }]
- */
+ * {
+        "_id": "5d57ac5355497c57987f19cd",
+        "title": "Active Clients List Report",
+        "type": "ACTIVE_CLIENTS_LIST",
+        "has_parameters": true,
+        "parameters": [
+            {
+                "required": false,
+                "constants": [],
+                "_id": "5dd52eb2d67d03053090e907",
+                "name": "Loan Officer",
+                "code": "loanOfficer",
+                "type": "SELECT",
+                "is_constant": false,
+                "remark": "All loan officers will be considered",
+                "get_from": "lists/loanOfficers"
+            },
+            {
+                ...
+            }...
+        ],
+        "date_created": "2019-08-17T07:27:15.074Z",
+        "last_modified": "2019-11-20T12:16:50.282Z",
+        "description": "This report contains list of clients.If filtering is applied, it will be based on the last loan cycle data."
+ * }
 
-
-
-
-router.get('/:id', acl(['*']), reportsController.fetchOne);
-
-router.delete('/:id', acl(['*']), reportsController.deleteOne);
-
-
+ **/
 router.put('/:id', acl(['*']), reportsController.update);
 
+/**
+ * @api {post} /reports/:id/pdf Generate pdf report
+ * @apiVersion 1.0.0
+ * @apiName GeneratePdf
+ * @apiGroup Report
+ *
+ * @apiDescription Generates a pdf report of the kind specified by the ID of the report.
+ * 
+ * @apiParam object List of parameters
+ * 
+ * @apiParamExample Request Example:
+ * {
+        "branch":{"send":"5b926c849fb7f20001f1494c","display":"Meki Branch"},
+        "crop":{"send":"5b9276f1ac942500011c106e", "display":"Onion"},
+        "fromDate":{"send": "02/01/2019", "display": "February 01, 2019"},
+        "toDate":{"send": "03/31/2019", "display": "March 31, 2019"}
+ * }
+
+ * @apiSuccess {file} file Generated report in pdf format
+ * 
+ * **/
 router.post('/:id/pdf', acl(['*']), reportsController.fetchPdf)
 
+/**
+ * @api {post} /reports/:id/docx Generate Word report
+ * @apiVersion 1.0.0
+ * @apiName GenerateDocx
+ * @apiGroup Report
+ *
+ * @apiDescription Generates a docx report of the kind specified by the ID of the report.
+ * 
+ * @apiParam object List of parameters
+ * 
+ * @apiParamExample Request Example:
+ * {
+        "branch":{"send":"5b926c849fb7f20001f1494c","display":"Meki Branch"},
+        "crop":{"send":"5b9276f1ac942500011c106e", "display":"Onion"},
+        "fromDate":{"send": "02/01/2019", "display": "February 01, 2019"},
+        "toDate":{"send": "03/31/2019", "display": "March 31, 2019"}
+ * }
+
+ * @apiSuccess {file} file Generated report in docx format 
+ * 
+ * 
+ **/
 router.post('/:id/docx', acl(['*']), reportsController.fetchDocx)
 
+/**
+ * @api {post} /reports/dashboard/counts Get Counts
+ * @apiVersion 1.0.0
+ * @apiName GetCounts
+ * @apiGroup Dashboard
+ *
+ * @apiDescription Get dashboard counts
+ * 
+ * @apiSuccess {Number} branches Branches count
+ * @apiSuccess {Number} users Users count
+ * @apiSuccess {Number} individualClients Individual clients count
+ * @apiSuccess {Number} groupClients Groups count
+
+ * @apiSuccessExample Response Example:
+ {
+    "branches": 2,
+    "users": 11,
+    "individualClients": 2,
+    "groupClients": 0
+ }
+ 
+ **/
 router.get('/dashboard/counts', reportsController.getCounts);
 
+
+/**
+ * @api {post} /reports/dashboard/charts Get Chart Data
+ * @apiVersion 1.0.0
+ * @apiName GetCharts
+ * @apiGroup Dashboard
+ *
+ * @apiDescription Get dashboard Chart Data
+ * 
+ * @apiSuccess {String} name Title of the chart
+ * @apiSuccess {String} type Type of the chart
+ * @apiSuccess {String[]} labels Labels
+ * @apiSuccess {Number[]} data Data associated with the labels
+
+ * @apiSuccessExample Response Example:
+ [
+    {
+        "name": "Loan Amount by Crop",
+        "type": "BAR",
+        "labels": [
+            "Head Cabbage",
+            "Tomato",
+            "Bean",
+            "Greenpepper",
+            "Cabbage",
+            "Cbage",
+            "Onion",
+            "Maize",
+            "Wheat",
+            "Banana"
+        ],
+        "data": [
+            320000,
+            660000,
+            261000,
+            405000,
+            65000,
+            0,
+            1296000,
+            0,
+            0,
+            0
+        ]
+    },
+    {...}
+]
+ 
+ **/
 router.get('/dashboard/charts', reportsController.getDashboardStats);
 
 
@@ -348,6 +301,9 @@ router.put('/aggregate', acl(['*']), updatorController.aggregateAchieved);
 //router.get('/:id/test', acl(['*']), reportsController.testPlatform)
 //****END */
 
+router.get('/:id', acl(['*']), reportsController.fetchOne);
+
+router.delete('/:id', acl(['*']), reportsController.deleteOne);
 
 // Expose Client Router
 module.exports = router;

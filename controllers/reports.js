@@ -387,7 +387,7 @@ exports.getCounts = function* getCounts(next){
       groupsCount = groups.length
 
     let response = {
-    branches: branchesCount,
+      branches: branchesCount,
       users: usersCount,
       individualClients: clientsCount,
       groupClients: groupsCount

@@ -50,7 +50,7 @@
     "koa-unless": "0.0.1",
     "koa-validate": "~1.0.7",
     "libreoffice-convert": "^1.0.0",
-    "lodash": "~4.17.11",
+    "lodash": "~4.17.13",
     "mammoth": "^1.4.8",
     "mammoth-style": "0.0.1",
     "moment": "~2.22.2",

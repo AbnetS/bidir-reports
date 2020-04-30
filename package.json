@@ -54,7 +54,7 @@
     "mammoth": "^1.4.8",
     "mammoth-style": "0.0.1",
     "moment": "~2.22.2",
-    "mongoose": "~5.3.16",
+    "mongoose": "~5.7.5",
     "mongoose-paginate": "~5.0.0",
     "mongoose-unique-validator": "^2.0.3",
     "ms": "~2.1.1",

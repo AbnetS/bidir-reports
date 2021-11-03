@@ -68,7 +68,7 @@
     "request-promise": "^4.2.2",
     "streaming-json-stringify": "~3.1.0",
     "uuid": "~3.3.2",
-    "validator": "~10.9.0"
+    "validator": "~13.7.0"
   },
   "devDependencies": {
     "apidoc": "~0.17.5",

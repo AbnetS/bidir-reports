@@ -53,7 +53,7 @@
     "lodash": "~4.17.11",
     "mammoth": "^1.4.8",
     "mammoth-style": "0.0.1",
-    "moment": "~2.22.2",
+    "moment": "~2.29.2",
     "mongoose": "~5.3.16",
     "mongoose-paginate": "~5.0.0",
     "mongoose-unique-validator": "^2.0.3",

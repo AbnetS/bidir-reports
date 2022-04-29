@@ -26,7 +26,7 @@
   "homepage": "",
   "dependencies": {
     "@nativedocuments/docx-wasm": "^2.2.8-1547344486",
-    "async": "^2.6.2",
+    "async": "^2.6.4",
     "base64-img": "^1.0.4",
     "bcrypt": "^3.0.7",
     "carbone": "^1.2.0",
